@@ -6,7 +6,10 @@
 # Evaluate Diarization Error Rate (DER) on the first n clips from Hugging Face
 # ``diarizers-community/callhome`` (English subset by default): reference labels
 # from dataset timestamps vs (1) full ``SpeakerDiarization`` in Python and
-# (2) C++ ``community1_shortpath`` either with oracle clusters from a golden dump
+# (2) C++ ``community1_shortpath`` either with oracle clusters from a golden dump.
+# By default we evaluate the **NIST-style Part 2** slice (see ``--callhome-part``):
+# for 140-row configs that is HF rows 80–139 (Part 1 is 0–79); for 120-row configs,
+# Part 2 is rows 60–119 (Part 1 is 0–59).
 # (``--cpp-mode oracle``) or the full C++ stack including ORT embedding + VBx
 # (``--cpp-mode full``, no ``hard_clusters_final.npz``).
 
@@ -52,6 +55,17 @@ def _pick_token(explicit: str | None) -> str | bool | None:
 
 def _utterance_stem(subset: str, index: int, max_seconds: float) -> str:
     return f"callhome_{subset}_data_idx{index}_head{int(max_seconds)}s"
+
+
+def _callhome_hf_part_start_row(n_rows: int, part: str) -> int:
+    """First HF row index for NIST-style Part 1 / Part 2 on ``diarizers-community/callhome``."""
+    if part == "1":
+        return 0
+    if n_rows == 140:
+        return 80
+    if n_rows == 120:
+        return 60
+    return 0
 
 
 def _row_to_reference(row: dict[str, Any], crop_end: float, uri: str) -> Any:
@@ -123,7 +137,9 @@ def main() -> None:
     ap = argparse.ArgumentParser(
         description=(
             "DER on first n CallHome (HF) clips: Python community-1 pipeline vs C++ shortpath "
-            "(oracle clusters or full C++ VBx; see --cpp-mode)."
+            "(oracle clusters or full C++ VBx; see --cpp-mode). "
+            "Defaults to NIST-style Part 2 rows (``--callhome-part 2``); use ``--callhome-part 1`` or "
+            "``--start-index`` to change the slice."
         )
     )
     ap.add_argument(
@@ -133,7 +149,26 @@ def main() -> None:
         default=20,
         help="Number of consecutive dataset rows starting at --start-index (default: 20)",
     )
-    ap.add_argument("--start-index", type=int, default=0, help="First row index in the split (default: 0)")
+    ap.add_argument(
+        "--callhome-part",
+        choices=("1", "2"),
+        default="2",
+        help=(
+            "NIST-style CallHome partition on the HF ``data`` split: "
+            "``1`` = first block (rows 0–79 for 140-row configs, 0–59 for 120-row); "
+            "``2`` = second / evaluation block (80–139 or 60–119). "
+            "Ignored when --start-index is set."
+        ),
+    )
+    ap.add_argument(
+        "--start-index",
+        type=int,
+        default=None,
+        help=(
+            "First row index in the HF split. "
+            "When omitted, derived from ``--callhome-part`` (default part: 2)."
+        ),
+    )
     ap.add_argument(
         "--subset",
         default="eng",
@@ -249,10 +284,22 @@ def main() -> None:
     token = _pick_token(args.token)
     ds = load_dataset("diarizers-community/callhome", args.subset, split=args.split)
 
-    hi = args.start_index + args.num_files
-    if args.start_index < 0 or hi > len(ds):
+    start_index = (
+        args.start_index
+        if args.start_index is not None
+        else _callhome_hf_part_start_row(len(ds), args.callhome_part)
+    )
+    if args.start_index is None:
+        print(
+            f"Using CallHome HF part {args.callhome_part} → --start-index {start_index} "
+            f"(split len={len(ds)})",
+            flush=True,
+        )
+
+    hi = start_index + args.num_files
+    if start_index < 0 or hi > len(ds):
         raise SystemExit(
-            f"row range [{args.start_index}, {hi}) out of range for split (len={len(ds)})"
+            f"row range [{start_index}, {hi}) out of range for split (len={len(ds)})"
         )
 
     stems: list[str] = []
@@ -260,7 +307,7 @@ def main() -> None:
     rows: list[dict[str, Any]] = []
     durations: list[float] = []
 
-    for i in range(args.start_index, hi):
+    for i in range(start_index, hi):
         stem = _utterance_stem(args.subset, i, args.max_seconds)
         wav_path = wav_dir / f"{stem}.wav"
         row = ds[i]
@@ -401,7 +448,7 @@ def main() -> None:
 
     for j, (i, stem, wav_path, row, dur) in enumerate(
         zip(
-            range(args.start_index, hi),
+            range(start_index, hi),
             stems,
             wav_paths,
             rows,
