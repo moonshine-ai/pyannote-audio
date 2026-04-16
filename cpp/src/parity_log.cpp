@@ -8,7 +8,7 @@
 #include <filesystem>
 #include <iostream>
 
-namespace pyannote::parity {
+namespace cppannote::parity {
 namespace {
 
 const char* kParityEnv = "PYANNOTE_CPP_PARITY";
@@ -89,4 +89,4 @@ std::string fingerprint_float32(const float* data, std::size_t n, std::size_t st
   return std::string(buf);
 }
 
-}  // namespace pyannote::parity
+}  // namespace cppannote::parity

@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
   Eigen::VectorXd pi;
   std::vector<Eigen::MatrixXd> trace_gamma;
   std::vector<Eigen::VectorXd> trace_pi;
-  pyannote::plda_vbx::cluster_vbx(
+  cppannote::plda_vbx::cluster_vbx(
       ahc,
       fea,
       Phi,

@@ -5,7 +5,7 @@
 #include <cmath>
 #include <vector>
 
-namespace pyannote::filter_train {
+namespace cppannote::filter_train {
 
 void filter_embeddings_train(
     int num_chunks,
@@ -60,4 +60,4 @@ void filter_embeddings_train(
   }
 }
 
-}  // namespace pyannote::filter_train
+}  // namespace cppannote::filter_train

@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 
-namespace pyannote_port {
+namespace cppannote {
 
 inline constexpr double kSegmentPrecision = 1e-6;
 
@@ -98,4 +98,4 @@ inline std::vector<std::pair<int, Segment>> annotation_support(
   return flat;
 }
 
-}  // namespace pyannote_port
+}  // namespace cppannote

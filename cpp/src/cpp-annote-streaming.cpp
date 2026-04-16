@@ -10,26 +10,13 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <utility>
 #include <vector>
 
-namespace pyannote {
+namespace cppannote {
 namespace {
-
-std::string json_escape(const std::string& s) {
-  std::string o;
-  for (char c : s) {
-    if (c == '"' || c == '\\') {
-      o += '\\';
-    }
-    o += c;
-  }
-  return o;
-}
 
 double segment_iou(double a0, double a1, double b0, double b1) {
   const double inter = std::max(0., std::min(a1, b1) - std::max(a0, b0));
@@ -43,7 +30,7 @@ double segment_iou(double a0, double a1, double b0, double b1) {
 
 }  // namespace
 
-StreamingDiarizationSession::StreamingDiarizationSession(CppAnnote& engine, StreamingDiarizationConfig config)
+StreamingDiarizationSession::StreamingDiarizationSession(CppAnnoteEngine& engine, StreamingDiarizationConfig config)
     : engine_(engine), cfg_(std::move(config)) {
   cfg_.refresh_every_sec = std::max(0.0, cfg_.refresh_every_sec);
   const double step = engine_.segmentation_chunk_step_sec();
@@ -116,10 +103,10 @@ void StreamingDiarizationSession::cache_new_chunks() {
     if (chunk_cache_.count(abs_off)) {
       continue;
     }
-    auto chunk_buf = CppAnnote::extract_chunk_audio(
+    auto chunk_buf = CppAnnoteEngine::extract_chunk_audio(
         buffer_.data(), num_samples_i, buf_off, chunk_num_samples, num_channels);
     auto seg = engine_.run_segmentation_ort_single(chunk_buf.data());
-    auto mono = CppAnnote::extract_chunk_audio(
+    auto mono = CppAnnoteEngine::extract_chunk_audio(
         buffer_.data(), num_samples_i, buf_off, chunk_num_samples, 1);
     auto emb_chunk = engine_.run_embedding_ort_single(mono.data(), seg.data());
     chunk_cache_[abs_off] = CachedChunk{std::move(seg), std::move(emb_chunk)};
@@ -221,10 +208,10 @@ void StreamingDiarizationSession::maybe_refresh(bool force) {
     const int64_t buf_off = num_complete_chunks * step_samples;
     const int64_t abs_off = buffer_abs_start_samples_ + buf_off;
     tail_abs_off = abs_off;
-    auto chunk_buf = CppAnnote::extract_chunk_audio(
+    auto chunk_buf = CppAnnoteEngine::extract_chunk_audio(
         buffer_.data(), num_samples_i, buf_off, chunk_num_samples, num_channels);
     auto seg = engine_.run_segmentation_ort_single(chunk_buf.data());
-    auto mono = CppAnnote::extract_chunk_audio(
+    auto mono = CppAnnoteEngine::extract_chunk_audio(
         buffer_.data(), num_samples_i, buf_off, chunk_num_samples, 1);
     auto emb_chunk = engine_.run_embedding_ort_single(mono.data(), seg.data());
     chunk_cache_[abs_off] = CachedChunk{std::move(seg), std::move(emb_chunk)};
@@ -317,6 +304,13 @@ StreamingDiarizationSnapshot StreamingDiarizationSession::snapshot() const {
   return snapshot_;
 }
 
+StreamingDiarizationSnapshot StreamingDiarizationSession::refresh_and_snapshot() {
+  maybe_refresh(true);
+  snapshot_.input_end_sec = input_end_sec_;
+  snapshot_.window_start_sec = window_start_sec_;
+  return snapshot_;
+}
+
 StreamingDiarizationSnapshot StreamingDiarizationSession::end_session() {
   maybe_refresh(true);
   snapshot_.input_end_sec = input_end_sec_;
@@ -328,27 +322,4 @@ StreamingDiarizationSnapshot StreamingDiarizationSession::end_session() {
   return snapshot_;
 }
 
-void StreamingDiarizationSession::write_snapshot_json(const std::string& path, const StreamingDiarizationSnapshot& snap) {
-  std::ofstream f(path);
-  if (!f) {
-    throw std::runtime_error("write_streaming_snapshot_json: open failed: " + path);
-  }
-  f << std::setprecision(17);
-  f << "{\n";
-  f << "  \"input_end_sec\": " << snap.input_end_sec << ",\n";
-  f << "  \"window_start_sec\": " << snap.window_start_sec << ",\n";
-  f << "  \"refresh_generation\": " << snap.refresh_generation << ",\n";
-  f << "  \"turns\": [\n";
-  for (size_t i = 0; i < snap.turns.size(); ++i) {
-    const StreamingDiarizationTurn& t = snap.turns[i];
-    f << "    {\"start\": " << t.start << ", \"end\": " << t.end << ", \"speaker\": \"" << json_escape(t.speaker)
-      << "\", \"last_updated_at_input_end_sec\": " << t.last_updated_at_input_end_sec << "}";
-    if (i + 1 < snap.turns.size()) {
-      f << ",";
-    }
-    f << "\n";
-  }
-  f << "  ]\n}\n";
-}
-
-}  // namespace pyannote
+}  // namespace cppannote

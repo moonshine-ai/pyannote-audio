@@ -8,11 +8,11 @@
 
 #include "cnpy.h"
 
-namespace pyannote::plda_vbx {
+namespace cppannote::plda_vbx {
 
 using RowMatrixXf = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 
-// Hugging Face ``pyannote/speaker-diarization-community-1`` ``plda.npz`` (128×128 ``tr``): Eigen's
+// Hugging Face ``cppannote/speaker-diarization-community-1`` ``plda.npz`` (128×128 ``tr``): Eigen's
 // generalized eigenvectors can differ from SciPy ``eigh`` by **per-column** signs. Fingerprint ``tr``,
 // then align each ``evecs`` column using SciPy's ``wccn[0, j]`` (ascending eigenvalues).
 constexpr double kCommunity1PldaTrSum = -6.923248683599031;
@@ -426,4 +426,4 @@ void cluster_vbx(
   }
 }
 
-}  // namespace pyannote::plda_vbx
+}  // namespace cppannote::plda_vbx

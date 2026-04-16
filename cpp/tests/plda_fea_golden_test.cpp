@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
   Eigen::MatrixXd train = Eigen::Map<const Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>(
       tr.data<double>(), T, d_emb);
 
-  pyannote::plda_vbx::PldaModel model;
+  cppannote::plda_vbx::PldaModel model;
   model.load(xvec_path, plda_path, lda_dim);
 
   const Eigen::MatrixXd x0_cpp = model.xvec_tf(train);

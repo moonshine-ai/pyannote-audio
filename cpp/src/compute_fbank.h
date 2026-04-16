@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-// Kaldi log-fbank aligned with pyannote ``ONNXWeSpeakerPretrainedSpeakerEmbedding.compute_fbank``.
+// Kaldi log-fbank aligned with cppannote ``ONNXWeSpeakerPretrainedSpeakerEmbedding.compute_fbank``.
 
 #pragma once
 
 #include <cstdint>
 #include <vector>
 
-namespace pyannote::fbank {
+namespace cppannote::fbank {
 
 /// Mono waveform ``[-1,1]`` → log-fbank, shape ``(T * num_mel_bins)`` row-major.
 /// Applies ``wave * (1<<15)`` before analysis and per-mel mean subtraction over time (matches Torch path).
@@ -21,4 +21,4 @@ void wespeaker_like_fbank(
     int& num_frames,
     int& mel_dim_out);
 
-}  // namespace pyannote::fbank
+}  // namespace cppannote::fbank

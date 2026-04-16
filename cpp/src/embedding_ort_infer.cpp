@@ -10,7 +10,7 @@
 
 #include "compute_fbank.h"
 
-namespace pyannote::embedding_ort {
+namespace cppannote::embedding_ort {
 namespace {
 
 bool any_non_finite_embedding(const float* e, int dim) {
@@ -106,7 +106,7 @@ int discover_min_num_samples_embedding(
     int Tf = 0;
     int Mdim = 0;
     std::vector<float> fb;
-    pyannote::fbank::wespeaker_like_fbank(
+    cppannote::fbank::wespeaker_like_fbank(
         static_cast<float>(embed_sr), mel_bins, fl_ms, fs_ms, noise.data(), middle, fb, Tf, Mdim);
     if (Tf < 1 || Mdim < 1) {
       lower = middle;
@@ -138,7 +138,7 @@ int fbank_num_frames_for_samples(
   int Tf = 0;
   int Mdim = 0;
   std::vector<float> fb;
-  pyannote::fbank::wespeaker_like_fbank(
+  cppannote::fbank::wespeaker_like_fbank(
       static_cast<float>(embed_sr), mel_bins, fl_ms, fs_ms, noise.data(), num_samples, fb, Tf, Mdim);
   return Tf;
 }
@@ -161,4 +161,4 @@ int seg_to_fbank_nearest_index(int tf, int num_seg_frames, int num_fbank_frames)
   return si;
 }
 
-}  // namespace pyannote::embedding_ort
+}  // namespace cppannote::embedding_ort

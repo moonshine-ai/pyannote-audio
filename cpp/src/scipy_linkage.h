@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace pyannote::scipy_linkage {
+namespace cppannote::scipy_linkage {
 
 inline std::size_t condensed_index(int n, int i, int j) {
   if (i > j) {
@@ -31,4 +31,4 @@ void fcluster_distance(const std::vector<double>& Z, int n, double cutoff, std::
 /// `np.unique(labels - 1, return_inverse=True)[1]` — contiguous 0..K-1.
 void remap_labels_contiguous(const std::vector<int>& labels_one_based, std::vector<int>& out);
 
-}  // namespace pyannote::scipy_linkage
+}  // namespace cppannote::scipy_linkage

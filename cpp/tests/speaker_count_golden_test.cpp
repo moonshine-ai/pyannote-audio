@@ -56,7 +56,7 @@ static std::int8_t cap_count_to_int8(std::uint8_t initial_u8, int max_speakers_c
   return static_cast<std::int8_t>(static_cast<std::uint8_t>(m));
 }
 
-// pyannote.core.SlidingWindow.closest_frame
+// cppannote.core.SlidingWindow.closest_frame
 static int closest_frame(double t, double sw_start, double sw_duration, double sw_step) {
   const double x = (t - sw_start - 0.5 * sw_duration) / sw_step;
   return static_cast<int>(std::lrint(x));

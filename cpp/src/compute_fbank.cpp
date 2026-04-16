@@ -8,7 +8,7 @@
 
 #include "kaldi-native-fbank/csrc/online-feature.h"
 
-namespace pyannote::fbank {
+namespace cppannote::fbank {
 
 void wespeaker_like_fbank(
     float sample_hz,
@@ -72,4 +72,4 @@ void wespeaker_like_fbank(
   }
 }
 
-}  // namespace pyannote::fbank
+}  // namespace cppannote::fbank

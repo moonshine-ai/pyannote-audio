@@ -7,7 +7,7 @@
 
 #include <string>
 
-namespace pyannote::embedding_ort {
+namespace cppannote::embedding_ort {
 
 [[nodiscard]] bool embedding_json_inputs_fbank_first(const std::string& emb_json);
 
@@ -44,4 +44,4 @@ int fbank_num_frames_for_samples(
 
 int seg_to_fbank_nearest_index(int tf, int num_seg_frames, int num_fbank_frames);
 
-}  // namespace pyannote::embedding_ort
+}  // namespace cppannote::embedding_ort

@@ -8,7 +8,7 @@
 
 #include "plda_vbx.h"
 
-namespace pyannote::clustering_vbx {
+namespace cppannote::clustering_vbx {
 
 struct VbxClusteringParams {
   double threshold = 0.6;
@@ -38,4 +38,4 @@ void vbx_clustering_hard(
     const float* binarized,
     std::vector<std::int8_t>& hard_clusters);
 
-}  // namespace pyannote::clustering_vbx
+}  // namespace cppannote::clustering_vbx

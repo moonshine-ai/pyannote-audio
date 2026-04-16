@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <string>
 
-namespace pyannote::parity {
+namespace cppannote::parity {
 
 /// ``PYANNOTE_CPP_PARITY``: unset or ``0`` = off; ``1`` = stderr light log; ``2`` = heavy dumps (needs out dir).
 int env_parity_level();
@@ -31,4 +31,4 @@ std::string parity_clustering_npz_path();
 /// ``stride`` defaults to 409; mixes in ``n`` at the end.
 std::string fingerprint_float32(const float* data, std::size_t n, std::size_t stride = 409);
 
-}  // namespace pyannote::parity
+}  // namespace cppannote::parity

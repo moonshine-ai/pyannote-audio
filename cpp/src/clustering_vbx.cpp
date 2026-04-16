@@ -17,7 +17,7 @@
 #include "parity_log.h"
 #include "scipy_linkage.h"
 
-namespace pyannote::clustering_vbx {
+namespace cppannote::clustering_vbx {
 namespace {
 
 void row_normalize(Eigen::MatrixXd& M) {
@@ -451,4 +451,4 @@ void vbx_clustering_hard(
   }
 }
 
-}  // namespace pyannote::clustering_vbx
+}  // namespace cppannote::clustering_vbx

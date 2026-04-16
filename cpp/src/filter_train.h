@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace pyannote::filter_train {
+namespace cppannote::filter_train {
 
 /// Row-major ``embeddings`` length ``num_chunks * num_speakers * dim``;
 /// ``binarized`` length ``num_chunks * num_frames * num_speakers``.
@@ -24,4 +24,4 @@ void filter_embeddings_train(
     std::vector<int>& spk_idx,
     Eigen::MatrixXd& train);
 
-}  // namespace pyannote::filter_train
+}  // namespace cppannote::filter_train

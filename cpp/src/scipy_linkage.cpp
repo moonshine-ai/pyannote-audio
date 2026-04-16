@@ -8,7 +8,7 @@
 #include <limits>
 #include <vector>
 
-namespace pyannote::scipy_linkage {
+namespace cppannote::scipy_linkage {
 namespace {
 
 constexpr double kInf = std::numeric_limits<double>::infinity();
@@ -249,4 +249,4 @@ void remap_labels_contiguous(const std::vector<int>& labels_one_based, std::vect
   }
 }
 
-}  // namespace pyannote::scipy_linkage
+}  // namespace cppannote::scipy_linkage

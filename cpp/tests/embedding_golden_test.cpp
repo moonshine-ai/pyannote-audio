@@ -248,7 +248,7 @@ static int run_all_chunks(
   const float embed_fl_ms = static_cast<float>(json_double_req(emb_json, "frame_length_ms"));
   const float embed_fs_ms = static_cast<float>(json_double_req(emb_json, "frame_shift_ms"));
   const int embed_dim = static_cast<int>(json_double_req(emb_json, "embedding_dim"));
-  const bool fbank_first = pyannote::embedding_ort::embedding_json_inputs_fbank_first(emb_json);
+  const bool fbank_first = cppannote::embedding_ort::embedding_json_inputs_fbank_first(emb_json);
 
   const int sr_model = static_cast<int>(json_double_req(seg_json, "sample_rate"));
   const int chunk_num_samples = static_cast<int>(json_double_req(seg_json, "chunk_num_samples"));
@@ -321,7 +321,7 @@ static int run_all_chunks(
   Ort::MemoryInfo mem = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
   Ort::AllocatorWithDefaultOptions alloc;
 
-  const int min_num_samples = pyannote::embedding_ort::discover_min_num_samples_embedding(
+  const int min_num_samples = cppannote::embedding_ort::discover_min_num_samples_embedding(
       session,
       mem,
       alloc,
@@ -331,7 +331,7 @@ static int run_all_chunks(
       embed_fl_ms,
       embed_fs_ms,
       embed_dim);
-  int min_num_frames = pyannote::embedding_ort::fbank_num_frames_for_samples(
+  int min_num_frames = cppannote::embedding_ort::fbank_num_frames_for_samples(
       embed_sr, embed_mel, embed_fl_ms, embed_fs_ms, min_num_samples);
   if (min_num_frames < 1) {
     min_num_frames = 1;
@@ -378,7 +378,7 @@ static int run_all_chunks(
     int Tf = 0;
     int Mfb = 0;
     std::vector<float> fbank_all;
-    pyannote::fbank::wespeaker_like_fbank(
+    cppannote::fbank::wespeaker_like_fbank(
         static_cast<float>(wav_sr_use),
         embed_mel,
         embed_fl_ms,
@@ -433,7 +433,7 @@ static int run_all_chunks(
       slot_prefer_clean[sidx] = prefer_clean ? 1 : 0;
       float* dst = &ort_emb[(static_cast<size_t>(ci) * static_cast<size_t>(S) + static_cast<size_t>(sp)) *
                             static_cast<size_t>(dim)];
-      pyannote::embedding_ort::run_embedding_ort(
+      cppannote::embedding_ort::run_embedding_ort(
           session, mem, alloc, fbank_first, fbank_all.data(), Tf, Mfb, src.data(), F, dst, dim);
     }
   }

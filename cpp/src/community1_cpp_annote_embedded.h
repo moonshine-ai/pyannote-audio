@@ -4,7 +4,7 @@
 
 #include <cstddef>
 
-namespace pyannote::embedded_community1 {
+namespace cppannote::embedded_community1 {
 
 extern const char receptive_field_json[];
 extern const std::size_t receptive_field_json_size;
@@ -24,4 +24,4 @@ constexpr int kEmbeddingDim = 256;
 constexpr int kLdaOutDim = 128;
 constexpr int kPldaDim = 128;
 
-}  // namespace pyannote::embedded_community1
+}  // namespace cppannote::embedded_community1

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-// CLI for diarization; core logic lives in ``src/cpp-annote.h`` (class ``pyannote::CppAnnote``).
-// All diarization runs through ``StreamingDiarizationSession``; for offline / whole-file use,
-// a large ``--refresh-every`` value defers clustering to the single ``end_session`` call.
+// CLI for diarization; all engine details are hidden behind the pimpl-based
+// CppAnnote class (cpp-annote.h).  Audio is fed through a streaming session
+// managed via create_stream / add_audio_to_stream / stop_stream.
 
 #include <cctype>
 #include <chrono>
@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-#include "cpp-annote-streaming.h"
+#include "cpp-annote.h"
 #include "wav_pcm_float32.h"
 
 namespace fs = std::filesystem;
@@ -38,8 +38,6 @@ static bool has_flag(int argc, char** argv, const char* key) {
 
 struct DiarJob {
   std::string wav;
-  /// Optional per-utterance ``golden_speaker_bounds.json``; empty uses constructor default.
-  std::string golden_bounds;
   std::string out;
 };
 
@@ -94,14 +92,15 @@ static std::vector<DiarJob> load_manifest_jobs(const std::string& manifest_path,
                                  ": single-column lines require --out-dir (wav path only)");
       }
       const fs::path wv(cols[0]);
-      jobs.push_back({cols[0], "", (fs::path(out_dir) / (wv.stem().string() + ".json")).string()});
+      jobs.push_back({cols[0], (fs::path(out_dir) / (wv.stem().string() + ".json")).string()});
     } else if (cols.size() == 2) {
-      jobs.push_back({cols[0], "", cols[1]});
+      jobs.push_back({cols[0], cols[1]});
     } else if (cols.size() == 3) {
-      jobs.push_back({cols[0], cols[1], cols[2]});
+      // 3-column format: wav<TAB>golden_bounds<TAB>out — golden_bounds column is ignored.
+      jobs.push_back({cols[0], cols[2]});
     } else {
       throw std::runtime_error("manifest " + manifest_path + " line " + std::to_string(lineno) +
-                               ": expected 1, 2, or 3 tab-separated fields (wav | wav,out | wav,bounds,out)");
+                               ": expected 1, 2, or 3 tab-separated fields");
     }
   }
   if (jobs.empty()) {
@@ -126,7 +125,7 @@ static std::vector<DiarJob> load_wav_list_jobs(const std::string& list_path, con
     }
     const fs::path wv(line);
     const std::string stem = wv.stem().string();
-    jobs.push_back({line, "", (out_dir / (stem + ".json")).string()});
+    jobs.push_back({line, (out_dir / (stem + ".json")).string()});
   }
   if (jobs.empty()) {
     throw std::runtime_error("wav-list has no paths: " + list_path);
@@ -145,40 +144,34 @@ static void print_timing(const char* tag, const std::string& path, double audio_
                   "[%s] %s  audio=%.2fs  wall=%.3fs\n",
                   tag, path.c_str(), audio_sec, wall_sec);
   }
-  std::cout << buf;
+  std::cerr << buf;
 }
 
-static void run_diarize(pyannote::CppAnnote& engine,
+static void run_diarize(cppannote::CppAnnote& engine,
                           const std::vector<DiarJob>& jobs,
                           double refresh_every_sec,
                           bool continue_on_error) {
-  pyannote::StreamingDiarizationConfig cfg;
-  cfg.refresh_every_sec = refresh_every_sec;
-
   int n_fail = 0;
   double total_audio_sec = 0.;
   double total_wall_sec = 0.;
   for (std::size_t i = 0; i < jobs.size(); ++i) {
     try {
       const DiarJob& job = jobs[i];
-      if (!job.golden_bounds.empty()) {
-        engine.set_golden_speaker_bounds(job.golden_bounds);
-      } else {
-        engine.set_golden_speaker_bounds("");
-      }
 
       int wav_sr = 0;
       std::vector<float> mono = wav_pcm::load_wav_pcm16_mono_float32(job.wav, wav_sr);
       const double audio_sec = wav_sr > 0
           ? static_cast<double>(mono.size()) / static_cast<double>(wav_sr) : 0.;
-      const fs::path outp(job.out);
-      const fs::path parent = outp.parent_path();
-      if (!parent.empty()) {
-        fs::create_directories(parent);
+      if (!job.out.empty()) {
+        const fs::path outp(job.out);
+        const fs::path parent = outp.parent_path();
+        if (!parent.empty()) {
+          fs::create_directories(parent);
+        }
       }
 
-      pyannote::StreamingDiarizationSession sess(engine, cfg);
-      sess.start_session();
+      int32_t stream_id = engine.create_stream(refresh_every_sec);
+      engine.start_stream(stream_id);
 
       constexpr double kSimChunkSec = 1.0;
       const std::size_t chunk_samples =
@@ -187,25 +180,31 @@ static void run_diarize(pyannote::CppAnnote& engine,
       std::size_t offset = 0;
       while (offset < mono.size()) {
         const std::size_t n = std::min(chunk_samples, mono.size() - offset);
-        sess.add_audio_chunk(mono.data() + offset, n, wav_sr);
+        engine.add_audio_to_stream(stream_id, mono.data() + offset,
+                                   static_cast<uint64_t>(n), static_cast<int32_t>(wav_sr));
         offset += n;
       }
 
-      pyannote::StreamingDiarizationSnapshot snap = sess.end_session();
+      cppannote::DiarizationResults results = engine.stop_stream(stream_id);
+      engine.free_stream(stream_id);
+
       const auto t1 = std::chrono::steady_clock::now();
       const double wall_sec =
           std::chrono::duration<double>(t1 - t0).count();
-      pyannote::StreamingDiarizationSession::write_snapshot_json(job.out, snap);
+
+      if (job.out.empty()) {
+        results.write_json(std::cout);
+      } else {
+        results.write_json(job.out);
+        if (results.turns.empty()) {
+          std::cerr << "[diarize] Wrote empty diarization -> " << job.out << "\n";
+        } else {
+          std::cerr << "[diarize] Wrote " << job.out << " (" << results.turns.size() << " turns)\n";
+        }
+      }
 
       total_audio_sec += audio_sec;
       total_wall_sec += wall_sec;
-
-      if (snap.turns.empty()) {
-        std::cout << "[diarize] Wrote empty diarization -> " << job.out << "\n";
-      } else {
-        std::cout << "[diarize] Wrote " << job.out << " (" << snap.turns.size() << " turns, "
-                  << snap.refresh_generation << " refreshes)\n";
-      }
       print_timing("diarize", job.wav, audio_sec, wall_sec);
     } catch (const std::exception& e) {
       std::cerr << "ERROR";
@@ -233,12 +232,12 @@ int main(int argc, char** argv) {
         << "cpp-annote-cli — WAV + segmentation ORT + ORT embedding + VBx -> diarization JSON.\n\n"
         << "Audio is fed through a streaming session that caches ORT results incrementally\n"
         << "and runs VBx clustering on a configurable cadence.\n\n"
-        << "Required for every run:\n"
-        << "  --segmentation-onnx PATH   (metadata: same stem .json)\n"
-        << "  --embedding-onnx PATH      community1-embedding.onnx (+ same-stem .json)\n\n"
+        << "Model paths (default to artifacts/ relative to CWD):\n"
+        << "  --segmentation-onnx PATH   (default: artifacts/community1-segmentation.onnx)\n"
+        << "  --embedding-onnx PATH      (default: artifacts/community1-embedding.onnx)\n\n"
         << "Single file:\n"
         << "  --wav PATH\n"
-        << "  --out PATH                 output diarization.json\n\n"
+        << "  --out PATH                 output diarization.json (omit to print to stdout)\n\n"
         << "Multi-file — tab-separated manifest (one job per line, # comments OK):\n"
         << "  --manifest PATH\n"
         << "    1 field:   wav   (requires --out-dir -> OUT/<wav_stem>.json)\n"
@@ -252,14 +251,15 @@ int main(int argc, char** argv) {
         << "Optional overrides (defaults compiled into the binary from export_cpp_annote_embedded.py):\n"
         << "  --receptive-field PATH         receptive_field.json\n"
         << "  --pipeline-snapshot PATH       pipeline_snapshot.json\n"
-        << "  --golden-speaker-bounds PATH   default max_speakers cap when a job omits per-utterance bounds\n"
+        << "  --golden-speaker-bounds PATH   default max_speakers cap\n"
         << "  --xvec-transform PATH          xvec_transform.npz (must pair with --plda)\n"
         << "  --plda PATH                    plda.npz\n"
         << "  --continue-on-error            print error and continue; exit 1 if any failed\n";
     return 2;
   }
   try {
-    const std::string onnx_path = get_arg(argc, argv, "--segmentation-onnx");
+    const std::string onnx_path = get_arg(argc, argv, "--segmentation-onnx",
+                                          "artifacts/community1-segmentation.onnx");
     const std::string rf_path = get_arg(argc, argv, "--receptive-field");
     const std::string manifest_path = get_arg(argc, argv, "--manifest");
     const std::string wav_list_path = get_arg(argc, argv, "--wav-list");
@@ -267,7 +267,8 @@ int main(int argc, char** argv) {
     const std::string out_dir = get_arg(argc, argv, "--out-dir");
     const std::string global_bounds = get_arg(argc, argv, "--golden-speaker-bounds");
     const std::string snap = get_arg(argc, argv, "--pipeline-snapshot");
-    const std::string embed_onnx = get_arg(argc, argv, "--embedding-onnx");
+    const std::string embed_onnx = get_arg(argc, argv, "--embedding-onnx",
+                                           "artifacts/community1-embedding.onnx");
     const std::string xvec_npz = get_arg(argc, argv, "--xvec-transform");
     const std::string plda_npz = get_arg(argc, argv, "--plda");
     const bool continue_on_error = has_flag(argc, argv, "--continue-on-error");
@@ -275,9 +276,6 @@ int main(int argc, char** argv) {
     const std::string refresh_str = get_arg(argc, argv, "--refresh-every");
     const double refresh_every_sec = refresh_str.empty() ? 2.0 : std::stod(refresh_str);
 
-    if (embed_onnx.empty()) {
-      throw std::runtime_error("missing --embedding-onnx (see --help)");
-    }
     if ((!xvec_npz.empty() && plda_npz.empty()) || (xvec_npz.empty() && !plda_npz.empty())) {
       throw std::runtime_error("provide both --xvec-transform and --plda, or neither for embedded weights");
     }
@@ -298,20 +296,16 @@ int main(int argc, char** argv) {
       jobs = load_wav_list_jobs(wav_list_path, fs::path(out_dir));
     } else {
       const std::string out_path = get_arg(argc, argv, "--out");
-      if (wav_path.empty() || out_path.empty()) {
-        throw std::runtime_error("missing --wav or --out (see --help)");
+      if (wav_path.empty()) {
+        throw std::runtime_error("missing --wav (see --help)");
       }
       if (!out_dir.empty()) {
         throw std::runtime_error("--out-dir is only for --manifest or --wav-list batch mode");
       }
-      jobs.push_back({wav_path, "", out_path});
+      jobs.push_back({wav_path, out_path});
     }
 
-    if (onnx_path.empty()) {
-      throw std::runtime_error("missing --segmentation-onnx");
-    }
-
-    pyannote::CppAnnote engine(
+    cppannote::CppAnnote engine(
         onnx_path,
         rf_path,
         global_bounds,

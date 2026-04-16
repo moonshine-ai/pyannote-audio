@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace pyannote::plda_vbx {
+namespace cppannote::plda_vbx {
 
 using RowMatrixXd = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 
@@ -67,4 +67,4 @@ void cluster_vbx(
     int* out_vbx_iters = nullptr,
     double* out_last_elbo_delta = nullptr);
 
-}  // namespace pyannote::plda_vbx
+}  // namespace cppannote::plda_vbx

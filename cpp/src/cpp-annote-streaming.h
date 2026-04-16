@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Realtime-oriented session API: append PCM chunks at arbitrary rates, run full diarization on a
 // bounded model-rate buffer on a coarse cadence (VBx / reconstruct are batch over the window).
+// Internal implementation detail — public callers should use CppAnnote (cpp-annote.h).
 
 #pragma once
 
-#include "cpp-annote.h"
+#include "cpp-annote-engine.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -12,7 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace pyannote {
+namespace cppannote {
 
 struct StreamingDiarizationConfig {
   /// Minimum seconds of new audio between VBx refreshes.  Converted internally to an
@@ -35,10 +36,10 @@ struct StreamingDiarizationSnapshot {
   int refresh_generation = 0;
 };
 
-/// Session bound to a ``CppAnnote`` engine; the engine must outlive the session.
+/// Session bound to a ``CppAnnoteEngine``; the engine must outlive the session.
 class StreamingDiarizationSession {
  public:
-  StreamingDiarizationSession(CppAnnote& engine, StreamingDiarizationConfig config = {});
+  StreamingDiarizationSession(CppAnnoteEngine& engine, StreamingDiarizationConfig config = {});
 
   void start_session();
   /// Append ``num_samples`` mono ``pcm`` at ``sample_rate`` Hz; resamples each chunk to the engine
@@ -47,11 +48,11 @@ class StreamingDiarizationSession {
   /// Current best snapshot (updated on refresh cadence; ``input_end_sec`` advances every chunk).
   [[nodiscard]] StreamingDiarizationSnapshot snapshot() const;
 
+  /// Force a VBx refresh and return the updated snapshot.
+  StreamingDiarizationSnapshot refresh_and_snapshot();
+
   /// Final refresh (forces VBx pass if possible) and snapshot.
   StreamingDiarizationSnapshot end_session();
-
-  /// Writes ``StreamingDiarizationSnapshot`` as JSON (metadata + ``turns`` with timestamps).
-  static void write_snapshot_json(const std::string& path, const StreamingDiarizationSnapshot& snap);
 
   StreamingDiarizationSession(const StreamingDiarizationSession&) = delete;
   StreamingDiarizationSession& operator=(const StreamingDiarizationSession&) = delete;
@@ -70,7 +71,7 @@ class StreamingDiarizationSession {
     std::vector<float> emb;  // (K * dim)
   };
 
-  CppAnnote& engine_;
+  CppAnnoteEngine& engine_;
   StreamingDiarizationConfig cfg_{};
   int refresh_every_chunks_ = 1;  // derived from cfg_.refresh_every_sec / chunk_step_sec
 
@@ -89,4 +90,4 @@ class StreamingDiarizationSession {
   StreamingDiarizationSnapshot snapshot_;
 };
 
-}  // namespace pyannote
+}  // namespace cppannote

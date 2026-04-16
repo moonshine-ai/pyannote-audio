@@ -17,7 +17,7 @@
 
 #include "cnpy.h"
 
-// ---- pyannote.core.SlidingWindow.closest_frame --------------------------------
+// ---- cppannote.core.SlidingWindow.closest_frame --------------------------------
 static int closest_frame(double t, double sw_start, double sw_duration, double sw_step) {
   const double x = (t - sw_start - 0.5 * sw_duration) / sw_step;
   return static_cast<int>(std::lrint(x));

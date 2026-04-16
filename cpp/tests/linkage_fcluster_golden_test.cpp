@@ -52,12 +52,12 @@ int main(int argc, char** argv) {
     }
   }
   std::vector<double> pd_cpp;
-  pyannote::scipy_linkage::pdist_euclidean(xflat, n, d, pd_cpp);
+  cppannote::scipy_linkage::pdist_euclidean(xflat, n, d, pd_cpp);
   const double mad_pd = max_abs_diff(pd_cpp, pd.data<double>(), m);
   std::cout << "pdist max_abs_diff=" << mad_pd << "\n";
 
   std::vector<double> Z_cpp;
-  pyannote::scipy_linkage::linkage_centroid_naive(pd_cpp, n, Z_cpp);
+  cppannote::scipy_linkage::linkage_centroid_naive(pd_cpp, n, Z_cpp);
   const double mad_z = max_abs_diff(Z_cpp, lz.data<double>(), Z_cpp.size());
   std::cout << "linkage_Z max_abs_diff=" << mad_z << "\n";
 
@@ -66,9 +66,9 @@ int main(int argc, char** argv) {
     fcluster_t = z["fcluster_threshold"].data<double>()[0];
   }
   std::vector<int> fc;
-  pyannote::scipy_linkage::fcluster_distance(Z_cpp, n, fcluster_t, fc);
+  cppannote::scipy_linkage::fcluster_distance(Z_cpp, n, fcluster_t, fc);
   std::vector<int> ahc_cpp;
-  pyannote::scipy_linkage::remap_labels_contiguous(fc, ahc_cpp);
+  cppannote::scipy_linkage::remap_labels_contiguous(fc, ahc_cpp);
 
   int mism = 0;
   const std::int32_t* ahp = ah.data<std::int32_t>();

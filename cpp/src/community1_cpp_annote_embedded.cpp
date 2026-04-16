@@ -5,16 +5,16 @@
 
 #include "community1_cpp_annote_embedded.h"
 
-namespace pyannote::embedded_community1 {
+namespace cppannote::embedded_community1 {
 
-const char receptive_field_json[] = R"pyannote_embed({
+const char receptive_field_json[] = R"cppannote_embed({
   "start": 0.0,
   "duration": 0.0619375,
   "step": 0.016875
-})pyannote_embed";
+})cppannote_embed";
 const std::size_t receptive_field_json_size = sizeof(receptive_field_json) - 1;
 
-const char pipeline_snapshot_json[] = R"pyannote_embed({
+const char pipeline_snapshot_json[] = R"cppannote_embed({
   "class": "SpeakerDiarization",
   "segmentation_step": 0.1,
   "embedding_exclude_overlap": true,
@@ -24,14 +24,14 @@ const char pipeline_snapshot_json[] = R"pyannote_embed({
   "clustering.threshold": 0.6,
   "clustering.Fa": 0.07,
   "clustering.Fb": 0.8
-})pyannote_embed";
+})cppannote_embed";
 const std::size_t pipeline_snapshot_json_size = sizeof(pipeline_snapshot_json) - 1;
 
-const char golden_speaker_bounds_json[] = R"pyannote_embed({
+const char golden_speaker_bounds_json[] = R"cppannote_embed({
   "num_speakers": null,
   "min_speakers": 1,
   "max_speakers": null
-})pyannote_embed";
+})cppannote_embed";
 const std::size_t golden_speaker_bounds_json_size = sizeof(golden_speaker_bounds_json) - 1;
 
 // xvec_mean1 length=256
@@ -49850,4 +49850,4 @@ alignas(64) const double plda_psi[128] = {
   0.5696053623719841
 };
 
-}  // namespace pyannote::embedded_community1
+}  // namespace cppannote::embedded_community1

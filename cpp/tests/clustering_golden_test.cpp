@@ -69,9 +69,9 @@ int main(int argc, char** argv) {
   std::vector<float> emb_f(emb.data<float>(), emb.data<float>() + emb.num_vals);
   std::vector<float> bin_f(bin.data<float>(), bin.data<float>() + bin.num_vals);
 
-  pyannote::plda_vbx::PldaModel plda;
+  cppannote::plda_vbx::PldaModel plda;
   plda.load(xvec, plda_npz, 128);
-  pyannote::clustering_vbx::VbxClusteringParams pr;
+  cppannote::clustering_vbx::VbxClusteringParams pr;
   pr.threshold = 0.6;
   pr.Fa = 0.07;
   pr.Fb = 0.8;
@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
   pr.num_clusters = -1;
 
   std::vector<std::int8_t> hard;
-  pyannote::clustering_vbx::vbx_clustering_hard(plda, pr, C, F, S, dim, emb_f.data(), bin_f.data(), hard);
+  cppannote::clustering_vbx::vbx_clustering_hard(plda, pr, C, F, S, dim, emb_f.data(), bin_f.data(), hard);
 
   const std::int8_t* gptr = gold.data<std::int8_t>();
   const size_t n = hard.size();

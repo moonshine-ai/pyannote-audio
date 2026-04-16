@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+#include "cpp-annote-engine.h"
+#include "cpp-annote-streaming.h"
 #include "cpp-annote.h"
 
 #include <algorithm>
@@ -11,6 +13,7 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <climits>
@@ -29,7 +32,7 @@
 #include "wav_pcm_float32.h"
 #include "community1_cpp_annote_embedded.h"
 
-namespace pyannote {
+namespace cppannote {
 namespace {
 
 std::string read_text(const std::string& p) {
@@ -527,7 +530,7 @@ std::string default_speaker_label(int k) {
 
 }  // namespace
 
-CppAnnote::CppAnnote(
+CppAnnoteEngine::CppAnnoteEngine(
     std::string segmentation_onnx_path,
     std::string receptive_field_json_path,
     std::string golden_speaker_bounds_json_path,
@@ -537,7 +540,7 @@ CppAnnote::CppAnnote(
     std::string plda_npz_path)
     : onnx_path_(std::move(segmentation_onnx_path)),
       embedding_onnx_path_(std::move(embedding_onnx_path)),
-      ort_env_(ORT_LOGGING_LEVEL_WARNING, "pyannote_cpp"),
+      ort_env_(ORT_LOGGING_LEVEL_WARNING, "cppannote"),
       session_options_{},
       session_(ort_env_, onnx_path_.c_str(), session_options_),
       mem_(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault)),
@@ -545,12 +548,12 @@ CppAnnote::CppAnnote(
       in_name_(session_.GetInputNameAllocated(0, alloc_)),
       out_name_(session_.GetOutputNameAllocated(0, alloc_)) {
   if (embedding_onnx_path_.empty()) {
-    throw std::runtime_error("CppAnnote requires embedding ONNX path");
+    throw std::runtime_error("CppAnnoteEngine requires embedding ONNX path");
   }
   const bool embedded_plda = xvec_transform_npz_path.empty() && plda_npz_path.empty();
   if (!embedded_plda && (xvec_transform_npz_path.empty() || plda_npz_path.empty())) {
     throw std::runtime_error(
-        "CppAnnote: provide both xvec_transform and PLDA NPZ paths, or neither for embedded community-1 weights");
+        "CppAnnoteEngine: provide both xvec_transform and PLDA NPZ paths, or neither for embedded community-1 weights");
   }
   std::string json_path = onnx_path_;
   if (json_path.size() > 5 && json_path.substr(json_path.size() - 5) == ".onnx") {
@@ -575,8 +578,8 @@ CppAnnote::CppAnnote(
 
   const std::string rf_txt = receptive_field_json_path.empty()
       ? std::string(
-            pyannote::embedded_community1::receptive_field_json,
-            pyannote::embedded_community1::receptive_field_json_size)
+            cppannote::embedded_community1::receptive_field_json,
+            cppannote::embedded_community1::receptive_field_json_size)
       : read_text(receptive_field_json_path);
   rf_dur_ = json_double(rf_txt, "duration");
   rf_step_ = json_double(rf_txt, "step");
@@ -584,8 +587,8 @@ CppAnnote::CppAnnote(
   {
     const std::string sj = pipeline_snapshot_json_path.empty()
         ? std::string(
-              pyannote::embedded_community1::pipeline_snapshot_json,
-              pyannote::embedded_community1::pipeline_snapshot_json_size)
+              cppannote::embedded_community1::pipeline_snapshot_json,
+              cppannote::embedded_community1::pipeline_snapshot_json_size)
         : read_text(pipeline_snapshot_json_path);
     try_regex_double(sj, "segmentation\\.min_duration_off", min_off_);
     try_regex_double(sj, "segmentation\\.min_duration_on", min_on_);
@@ -603,8 +606,8 @@ CppAnnote::CppAnnote(
 
   default_golden_bounds_body_ = golden_speaker_bounds_json_path.empty()
       ? std::string(
-            pyannote::embedded_community1::golden_speaker_bounds_json,
-            pyannote::embedded_community1::golden_speaker_bounds_json_size)
+            cppannote::embedded_community1::golden_speaker_bounds_json,
+            cppannote::embedded_community1::golden_speaker_bounds_json_size)
       : read_text(golden_speaker_bounds_json_path);
   golden_bounds_body_ = default_golden_bounds_body_;
 
@@ -636,19 +639,19 @@ CppAnnote::CppAnnote(
     plda_model_ = std::make_unique<plda_vbx::PldaModel>();
     if (embedded_plda) {
       plda_model_->load_from_arrays(
-          pyannote::embedded_community1::xvec_mean1,
-          pyannote::embedded_community1::kEmbeddingDim,
-          pyannote::embedded_community1::xvec_mean2,
-          pyannote::embedded_community1::kLdaOutDim,
-          pyannote::embedded_community1::xvec_lda,
-          pyannote::embedded_community1::kEmbeddingDim,
-          pyannote::embedded_community1::kLdaOutDim,
-          pyannote::embedded_community1::plda_mu,
-          pyannote::embedded_community1::kPldaDim,
-          pyannote::embedded_community1::plda_tr,
-          pyannote::embedded_community1::kPldaDim,
-          pyannote::embedded_community1::plda_psi,
-          pyannote::embedded_community1::kPldaDim,
+          cppannote::embedded_community1::xvec_mean1,
+          cppannote::embedded_community1::kEmbeddingDim,
+          cppannote::embedded_community1::xvec_mean2,
+          cppannote::embedded_community1::kLdaOutDim,
+          cppannote::embedded_community1::xvec_lda,
+          cppannote::embedded_community1::kEmbeddingDim,
+          cppannote::embedded_community1::kLdaOutDim,
+          cppannote::embedded_community1::plda_mu,
+          cppannote::embedded_community1::kPldaDim,
+          cppannote::embedded_community1::plda_tr,
+          cppannote::embedded_community1::kPldaDim,
+          cppannote::embedded_community1::plda_psi,
+          cppannote::embedded_community1::kPldaDim,
           vbx_params_.lda_dimension);
     } else {
       plda_model_->load(xvec_transform_npz_path, plda_npz_path, vbx_params_.lda_dimension);
@@ -659,7 +662,7 @@ CppAnnote::CppAnnote(
   }
 }
 
-void CppAnnote::set_golden_speaker_bounds(std::string golden_speaker_bounds_json_path) {
+void CppAnnoteEngine::set_golden_speaker_bounds(std::string golden_speaker_bounds_json_path) {
   if (!golden_speaker_bounds_json_path.empty()) {
     golden_bounds_body_ = read_text(golden_speaker_bounds_json_path);
   } else {
@@ -671,7 +674,7 @@ void CppAnnote::set_golden_speaker_bounds(std::string golden_speaker_bounds_json
 // Per-chunk building blocks
 // ---------------------------------------------------------------------------
 
-std::vector<float> CppAnnote::extract_chunk_audio(
+std::vector<float> CppAnnoteEngine::extract_chunk_audio(
     const float* audio, int64_t num_samples,
     int64_t offset, int chunk_num_samples, int num_channels) {
   std::vector<float> buf(
@@ -688,7 +691,7 @@ std::vector<float> CppAnnote::extract_chunk_audio(
   return buf;
 }
 
-std::vector<float> CppAnnote::run_segmentation_ort_single(const float* chunk_buf) {
+std::vector<float> CppAnnoteEngine::run_segmentation_ort_single(const float* chunk_buf) {
   const int num_channels = cfg_.num_channels;
   const int chunk_num_samples = cfg_.chunk_num_samples;
   const std::array<int64_t, 3> in_shape{1, num_channels, chunk_num_samples};
@@ -717,7 +720,7 @@ std::vector<float> CppAnnote::run_segmentation_ort_single(const float* chunk_buf
   return std::vector<float>(op, op + F * K);
 }
 
-std::vector<float> CppAnnote::run_embedding_ort_single(
+std::vector<float> CppAnnoteEngine::run_embedding_ort_single(
     const float* chunk_mono, const float* seg_binarized) {
   const int F = seg_F_;
   const int K = seg_K_;
@@ -746,7 +749,7 @@ std::vector<float> CppAnnote::run_embedding_ort_single(
   int Tf = 0;
   int Mfb = 0;
   std::vector<float> fbank_all;
-  pyannote::fbank::wespeaker_like_fbank(
+  cppannote::fbank::wespeaker_like_fbank(
       static_cast<float>(wav_sr_use),
       embed_mel_bins_,
       embed_frame_length_ms_,
@@ -791,7 +794,7 @@ std::vector<float> CppAnnote::run_embedding_ort_single(
   return result;
 }
 
-std::vector<DiarizationTurn> CppAnnote::cluster_and_decode(
+std::vector<DiarizationTurn> CppAnnoteEngine::cluster_and_decode(
     const std::vector<float>& seg_out,
     const std::vector<float>& emb,
     int C, DiarizationProfile& profile) {
@@ -805,7 +808,7 @@ std::vector<DiarizationTurn> CppAnnote::cluster_and_decode(
     throw std::runtime_error("cluster_and_decode: segmentation dimensions not yet discovered");
   }
   if (!cfg_.multilabel_export) {
-    throw std::runtime_error("CppAnnote expects export_includes_powerset_to_multilabel=true");
+    throw std::runtime_error("CppAnnoteEngine expects export_includes_powerset_to_multilabel=true");
   }
 
   std::vector<float> binarized = seg_out;
@@ -888,7 +891,7 @@ std::vector<DiarizationTurn> CppAnnote::cluster_and_decode(
   for (int k = 0; k < K_di; ++k) {
     label_map[k] = default_speaker_label(k);
   }
-  std::map<int, std::vector<pyannote_port::Segment>> by_label;
+  std::map<int, std::vector<cppannote::Segment>> by_label;
   for (int k = 0; k < K_di; ++k) {
     std::vector<float> col(static_cast<size_t>(rows));
     for (int t = 0; t < rows; ++t) {
@@ -902,15 +905,15 @@ std::vector<DiarizationTurn> CppAnnote::cluster_and_decode(
       filter_min_duration_on(regs, min_on_);
     }
     for (const auto& pr : regs) {
-      by_label[k].push_back(pyannote_port::Segment{pr.first, pr.second});
+      by_label[k].push_back(cppannote::Segment{pr.first, pr.second});
     }
   }
 
   std::vector<DiarizationTurn> turns;
   if (apply_annotation_support) {
-    const auto merged = pyannote_port::annotation_support(by_label, min_off_);
+    const auto merged = cppannote::annotation_support(by_label, min_off_);
     for (const auto& pr : merged) {
-      const pyannote_port::Segment& seg = pr.second;
+      const cppannote::Segment& seg = pr.second;
       if (seg.duration() < min_on_ - 1e-12) {
         continue;
       }
@@ -918,7 +921,7 @@ std::vector<DiarizationTurn> CppAnnote::cluster_and_decode(
     }
   } else {
     for (int k = 0; k < K_di; ++k) {
-      for (const pyannote_port::Segment& seg : by_label[k]) {
+      for (const cppannote::Segment& seg : by_label[k]) {
         turns.push_back({seg.start, seg.end, label_map.at(k)});
       }
     }
@@ -934,4 +937,142 @@ std::vector<DiarizationTurn> CppAnnote::cluster_and_decode(
   return turns;
 }
 
-}  // namespace pyannote
+// ---------------------------------------------------------------------------
+// DiarizationResults::write_json
+// ---------------------------------------------------------------------------
+
+static std::string json_escape_speaker(const std::string& s) {
+  std::string o;
+  for (char c : s) {
+    if (c == '"' || c == '\\') {
+      o += '\\';
+    }
+    o += c;
+  }
+  return o;
+}
+
+void DiarizationResults::write_json(std::ostream& os) const {
+  os << std::setprecision(17);
+  os << "{\n";
+  os << "  \"turns\": [\n";
+  for (size_t i = 0; i < turns.size(); ++i) {
+    const DiarizationTurn& t = turns[i];
+    os << "    {\"start\": " << t.start << ", \"end\": " << t.end
+       << ", \"speaker\": \"" << json_escape_speaker(t.speaker) << "\"}";
+    if (i + 1 < turns.size()) {
+      os << ",";
+    }
+    os << "\n";
+  }
+  os << "  ]\n}\n";
+}
+
+void DiarizationResults::write_json(const std::string& path) const {
+  std::ofstream f(path);
+  if (!f) {
+    throw std::runtime_error("DiarizationResults::write_json: open failed: " + path);
+  }
+  write_json(f);
+}
+
+// ---------------------------------------------------------------------------
+// CppAnnote pimpl: Impl definition + forwarding methods
+// ---------------------------------------------------------------------------
+
+struct CppAnnote::Impl {
+  CppAnnoteEngine engine;
+  std::map<int32_t, std::unique_ptr<StreamingDiarizationSession>> streams;
+  std::map<int32_t, StreamingDiarizationConfig> stream_configs;
+  int32_t next_stream_id = 1;
+
+  Impl(std::string segmentation_onnx_path,
+       std::string receptive_field_json_path,
+       std::string golden_speaker_bounds_json_path,
+       std::string pipeline_snapshot_json_path,
+       std::string embedding_onnx_path,
+       std::string xvec_transform_npz_path,
+       std::string plda_npz_path)
+      : engine(std::move(segmentation_onnx_path),
+               std::move(receptive_field_json_path),
+               std::move(golden_speaker_bounds_json_path),
+               std::move(pipeline_snapshot_json_path),
+               std::move(embedding_onnx_path),
+               std::move(xvec_transform_npz_path),
+               std::move(plda_npz_path)) {}
+
+  StreamingDiarizationSession& get_stream(int32_t id) {
+    auto it = streams.find(id);
+    if (it == streams.end()) {
+      throw std::runtime_error("CppAnnote: invalid stream_id " + std::to_string(id));
+    }
+    return *it->second;
+  }
+
+  static DiarizationResults to_results(const StreamingDiarizationSnapshot& snap) {
+    DiarizationResults r;
+    r.turns.reserve(snap.turns.size());
+    for (const auto& t : snap.turns) {
+      r.turns.push_back({t.start, t.end, t.speaker});
+    }
+    return r;
+  }
+};
+
+CppAnnote::CppAnnote(
+    std::string segmentation_onnx_path,
+    std::string receptive_field_json_path,
+    std::string golden_speaker_bounds_json_path,
+    std::string pipeline_snapshot_json_path,
+    std::string embedding_onnx_path,
+    std::string xvec_transform_npz_path,
+    std::string plda_npz_path)
+    : impl_(std::make_unique<Impl>(
+          std::move(segmentation_onnx_path),
+          std::move(receptive_field_json_path),
+          std::move(golden_speaker_bounds_json_path),
+          std::move(pipeline_snapshot_json_path),
+          std::move(embedding_onnx_path),
+          std::move(xvec_transform_npz_path),
+          std::move(plda_npz_path))) {}
+
+CppAnnote::~CppAnnote() = default;
+CppAnnote::CppAnnote(CppAnnote&&) noexcept = default;
+CppAnnote& CppAnnote::operator=(CppAnnote&&) noexcept = default;
+
+int32_t CppAnnote::create_stream(double refresh_every_sec) {
+  const int32_t id = impl_->next_stream_id++;
+  StreamingDiarizationConfig cfg;
+  cfg.refresh_every_sec = refresh_every_sec;
+  impl_->stream_configs[id] = cfg;
+  impl_->streams[id] =
+      std::make_unique<StreamingDiarizationSession>(impl_->engine, cfg);
+  return id;
+}
+
+void CppAnnote::free_stream(int32_t stream_id) {
+  impl_->streams.erase(stream_id);
+  impl_->stream_configs.erase(stream_id);
+}
+
+void CppAnnote::start_stream(int32_t stream_id) {
+  impl_->get_stream(stream_id).start_session();
+}
+
+DiarizationResults CppAnnote::stop_stream(int32_t stream_id) {
+  auto snap = impl_->get_stream(stream_id).end_session();
+  return Impl::to_results(snap);
+}
+
+void CppAnnote::add_audio_to_stream(int32_t stream_id, const float* audio_data,
+                                     uint64_t audio_length, int32_t sample_rate) {
+  impl_->get_stream(stream_id).add_audio_chunk(
+      audio_data, static_cast<std::size_t>(audio_length), static_cast<int>(sample_rate));
+}
+
+DiarizationResults CppAnnote::diarize_stream(int32_t stream_id) {
+  auto snap = impl_->get_stream(stream_id).refresh_and_snapshot();
+  return Impl::to_results(snap);
+}
+
+}  // namespace cppannote

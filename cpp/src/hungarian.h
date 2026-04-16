@@ -9,7 +9,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace pyannote::hungarian {
+namespace cppannote::hungarian {
 
 inline std::pair<double, std::vector<int>> min_cost_assignment(const std::vector<std::vector<double>>& cost) {
   const int n = static_cast<int>(cost.size());
@@ -83,4 +83,4 @@ inline std::pair<double, std::vector<int>> min_cost_assignment(const std::vector
   return {-v[0], assignment};
 }
 
-}  // namespace pyannote::hungarian
+}  // namespace cppannote::hungarian

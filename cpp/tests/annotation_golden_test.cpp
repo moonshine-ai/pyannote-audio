@@ -203,7 +203,7 @@ int main(int argc, char** argv) {
 
       const float* src = arr.data<float>();
 
-      std::map<int, std::vector<pyannote_port::Segment>> by_label;
+      std::map<int, std::vector<cppannote::Segment>> by_label;
       for (int k = 0; k < num_classes; ++k) {
         std::vector<float> col(static_cast<size_t>(num_frames));
         for (int t = 0; t < num_frames; ++t) {
@@ -223,23 +223,23 @@ int main(int argc, char** argv) {
             pad_offset,
             regs);
         for (const auto& pr : regs) {
-          by_label[k].push_back(pyannote_port::Segment{pr.first, pr.second});
+          by_label[k].push_back(cppannote::Segment{pr.first, pr.second});
         }
       }
 
       std::vector<std::tuple<int, double, double>> turns;
       if (apply_annotation_support) {
-        const std::vector<std::pair<int, pyannote_port::Segment>> merged =
-            pyannote_port::annotation_support(by_label, min_off);
+        const std::vector<std::pair<int, cppannote::Segment>> merged =
+            cppannote::annotation_support(by_label, min_off);
         for (const auto& item : merged) {
-          const pyannote_port::Segment& seg = item.second;
+          const cppannote::Segment& seg = item.second;
           if (seg.duration() >= min_on - 1e-12) {
             turns.emplace_back(item.first, seg.start, seg.end);
           }
         }
       } else {
         for (int k = 0; k < num_classes; ++k) {
-          for (const pyannote_port::Segment& seg : by_label[static_cast<int>(k)]) {
+          for (const cppannote::Segment& seg : by_label[static_cast<int>(k)]) {
             if (seg.duration() >= min_on - 1e-12) {
               turns.emplace_back(k, seg.start, seg.end);
             }
