@@ -238,16 +238,11 @@ static void run_diarize(cppannote::CppAnnote& engine,
 int main(int argc, char** argv) {
   if (argc < 2 || has_flag(argc, argv, "--help")) {
     std::cerr
-        << "cpp-annote-cli — WAV + segmentation ORT + ORT embedding + VBx -> "
+        << "cpp-annote-cli — WAV + compiled-in ORT models + VBx -> "
            "diarization JSON.\n\n"
         << "Audio is fed through a streaming session that caches ORT results "
            "incrementally\n"
         << "and runs VBx clustering on a configurable cadence.\n\n"
-        << "Model paths (default to artifacts/ relative to CWD):\n"
-        << "  --segmentation-onnx PATH   (default: "
-           "artifacts/community1-segmentation.onnx)\n"
-        << "  --embedding-onnx PATH      (default: "
-           "artifacts/community1-embedding.onnx)\n\n"
         << "Single file:\n"
         << "  --wav PATH\n"
         << "  --out PATH                 output diarization.json (omit to "
@@ -271,11 +266,6 @@ int main(int argc, char** argv) {
     return 2;
   }
   try {
-    const std::string onnx_path =
-        get_arg(argc, argv, "--segmentation-onnx",
-                "artifacts/community1-segmentation.onnx");
-    const std::string embed_onnx = get_arg(
-        argc, argv, "--embedding-onnx", "artifacts/community1-embedding.onnx");
     const std::string manifest_path = get_arg(argc, argv, "--manifest");
     const std::string wav_list_path = get_arg(argc, argv, "--wav-list");
     const std::string wav_path = get_arg(argc, argv, "--wav");
@@ -314,7 +304,7 @@ int main(int argc, char** argv) {
       jobs.push_back({wav_path, out_path});
     }
 
-    cppannote::CppAnnote engine(onnx_path, embed_onnx);
+    cppannote::CppAnnote engine;
 
     run_diarize(engine, jobs, refresh_every_sec, continue_on_error);
   } catch (const std::exception& e) {

@@ -188,6 +188,7 @@ add_executable(
   src/cpp-annote.cpp
   src/cpp-annote-streaming.cpp
   src/community1_cpp_annote_embedded.cpp
+  src/community1_ort_embedded.cpp
   src/compute_fbank.cpp
   src/embedding_ort_infer.cpp
   src/filter_train.cpp

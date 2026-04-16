@@ -26,16 +26,14 @@ struct DiarizationResults {
   void write_json(std::ostream &os) const;
 };
 
-/// Loads segmentation and embedding ONNX models once and manages streaming
-/// diarization sessions.  All heavy implementation details (ORT sessions,
-/// PLDA model, VBx clustering) are hidden behind the pimpl firewall.
+/// Loads segmentation and embedding ORT models from compiled-in data and
+/// manages streaming diarization sessions.  All heavy implementation details
+/// (ORT sessions, PLDA model, VBx clustering) are hidden behind the pimpl
+/// firewall.
 class CppAnnote {
  public:
-  /// Construct the diarization engine.  Both ONNX paths are required;
-  /// all other parameters (receptive field, pipeline snapshot, PLDA weights,
-  /// etc.) use compiled-in community-1 defaults.
-  explicit CppAnnote(std::string segmentation_onnx_path,
-                     std::string embedding_onnx_path);
+  /// Construct the diarization engine from compiled-in community-1 model data.
+  CppAnnote();
 
   ~CppAnnote();
 

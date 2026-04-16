@@ -347,11 +347,7 @@ def main() -> None:
         man_lines: list[str] = []
         for wav_path, stem in zip(wav_paths, stems, strict=True):
             out_json = cpp_out / f"{stem}.json"
-            gb = golden_root / stem / "golden_speaker_bounds.json"
-            if gb.is_file():
-                man_lines.append(f"{wav_path}\t{gb}\t{out_json}")
-            else:
-                man_lines.append(f"{wav_path}\t\t{out_json}")
+            man_lines.append(f"{wav_path}\t{out_json}")
         manifest_path.write_text("\n".join(man_lines) + "\n", encoding="utf-8")
 
         cmd_cpp = [

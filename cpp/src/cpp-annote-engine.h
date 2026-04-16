@@ -57,8 +57,8 @@ struct DiarizationProfile {
 
 class CppAnnoteEngine {
  public:
-  explicit CppAnnoteEngine(std::string segmentation_onnx_path,
-                           std::string embedding_onnx_path);
+  /// Construct from compiled-in ORT model data (community-1 defaults).
+  CppAnnoteEngine();
 
   CppAnnoteEngine(const CppAnnoteEngine&) = delete;
   CppAnnoteEngine& operator=(const CppAnnoteEngine&) = delete;
@@ -89,8 +89,6 @@ class CppAnnoteEngine {
   int seg_classes() const { return seg_K_; }
   int embedding_dimension() const { return embed_dim_; }
 
-  const std::string& segmentation_onnx_path() const { return onnx_path_; }
-
  private:
   struct SegConfig {
     int sr_model = 0;
@@ -101,7 +99,6 @@ class CppAnnoteEngine {
     double chunk_dur_sec = 0.;
   };
 
-  std::string onnx_path_;
   std::string golden_bounds_body_;
 
   SegConfig cfg_{};
@@ -120,7 +117,6 @@ class CppAnnoteEngine {
   Ort::AllocatedStringPtr in_name_;
   Ort::AllocatedStringPtr out_name_;
 
-  std::string embedding_onnx_path_;
   int embed_sr_ = 16000;
   int embed_mel_bins_ = 80;
   float embed_frame_length_ms_ = 25.f;

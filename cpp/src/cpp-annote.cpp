@@ -24,6 +24,7 @@
 #include "annotation_support.h"
 #include "clustering_vbx.h"
 #include "community1_cpp_annote_embedded.h"
+#include "community1_ort_embedded.h"
 #include "compute_fbank.h"
 #include "cpp-annote-engine.h"
 #include "cpp-annote-streaming.h"
@@ -34,16 +35,6 @@
 
 namespace cppannote {
 namespace {
-
-std::string read_text(const std::string &p) {
-  std::ifstream f(p, std::ios::binary);
-  if (!f) {
-    throw std::runtime_error("open failed: " + p);
-  }
-  std::ostringstream ss;
-  ss << f.rdbuf();
-  return ss.str();
-}
 
 double json_double(const std::string &json, const char *key) {
   const std::string pat = std::string("\"") + key + "\"\\s*:\\s*([-+0-9.eE]+)";
@@ -495,28 +486,20 @@ bool try_regex_int(const std::string &json, const std::string &key_esc,
 
 }  // namespace
 
-CppAnnoteEngine::CppAnnoteEngine(std::string segmentation_onnx_path,
-                                 std::string embedding_onnx_path)
-    : onnx_path_(std::move(segmentation_onnx_path)),
-      embedding_onnx_path_(std::move(embedding_onnx_path)),
-      ort_env_(ORT_LOGGING_LEVEL_WARNING, "cppannote"),
+CppAnnoteEngine::CppAnnoteEngine()
+    : ort_env_(ORT_LOGGING_LEVEL_WARNING, "cppannote"),
       session_options_{},
-      session_(ort_env_, onnx_path_.c_str(), session_options_),
+      session_(ort_env_,
+               cppannote::embedded_community1::segmentation_ort_data,
+               cppannote::embedded_community1::segmentation_ort_data_size,
+               session_options_),
       mem_(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault)),
       alloc_{},
       in_name_(session_.GetInputNameAllocated(0, alloc_)),
       out_name_(session_.GetOutputNameAllocated(0, alloc_)) {
-  if (embedding_onnx_path_.empty()) {
-    throw std::runtime_error("CppAnnoteEngine requires embedding ONNX path");
-  }
-  std::string json_path = onnx_path_;
-  if (json_path.size() > 5 &&
-      json_path.substr(json_path.size() - 5) == ".onnx") {
-    json_path = json_path.substr(0, json_path.size() - 5) + ".json";
-  } else {
-    json_path += ".json";
-  }
-  const std::string seg_json = read_text(json_path);
+  const std::string seg_json(
+      cppannote::embedded_community1::segmentation_json,
+      cppannote::embedded_community1::segmentation_json_size);
   cfg_.sr_model = static_cast<int>(json_double(seg_json, "sample_rate"));
   cfg_.num_channels = static_cast<int>(json_double(seg_json, "num_channels"));
   cfg_.chunk_num_samples =
@@ -563,15 +546,9 @@ CppAnnoteEngine::CppAnnoteEngine(std::string segmentation_onnx_path,
       cppannote::embedded_community1::golden_speaker_bounds_json_size);
 
   {
-    std::string emb_json_path = embedding_onnx_path_;
-    if (emb_json_path.size() > 5 &&
-        emb_json_path.substr(emb_json_path.size() - 5) == ".onnx") {
-      emb_json_path =
-          emb_json_path.substr(0, emb_json_path.size() - 5) + ".json";
-    } else {
-      emb_json_path += ".json";
-    }
-    const std::string emb_json = read_text(emb_json_path);
+    const std::string emb_json(
+        cppannote::embedded_community1::embedding_json,
+        cppannote::embedded_community1::embedding_json_size);
     embed_sr_ = static_cast<int>(json_double(emb_json, "sample_rate"));
     embed_mel_bins_ = static_cast<int>(json_double(emb_json, "num_mel_bins"));
     embed_frame_length_ms_ =
@@ -582,7 +559,10 @@ CppAnnoteEngine::CppAnnoteEngine(std::string segmentation_onnx_path,
     embed_inputs_fbank_then_weights_ =
         embedding_ort::embedding_json_inputs_fbank_first(emb_json);
     embed_session_ = std::make_unique<Ort::Session>(
-        ort_env_, embedding_onnx_path_.c_str(), session_options_);
+        ort_env_,
+        cppannote::embedded_community1::embedding_ort_data,
+        cppannote::embedded_community1::embedding_ort_data_size,
+        session_options_);
     min_num_samples_ = embedding_ort::discover_min_num_samples_embedding(
         *embed_session_, mem_, alloc_, embed_inputs_fbank_then_weights_,
         embed_sr_, embed_mel_bins_, embed_frame_length_ms_,
@@ -926,9 +906,7 @@ struct CppAnnote::Impl {
   std::map<int32_t, StreamingDiarizationConfig> stream_configs;
   int32_t next_stream_id = 1;
 
-  Impl(std::string segmentation_onnx_path, std::string embedding_onnx_path)
-      : engine(std::move(segmentation_onnx_path),
-               std::move(embedding_onnx_path)) {}
+  Impl() : engine() {}
 
   StreamingDiarizationSession &get_stream(int32_t id) {
     auto it = streams.find(id);
@@ -950,10 +928,7 @@ struct CppAnnote::Impl {
   }
 };
 
-CppAnnote::CppAnnote(std::string segmentation_onnx_path,
-                     std::string embedding_onnx_path)
-    : impl_(std::make_unique<Impl>(std::move(segmentation_onnx_path),
-                                   std::move(embedding_onnx_path))) {}
+CppAnnote::CppAnnote() : impl_(std::make_unique<Impl>()) {}
 
 CppAnnote::~CppAnnote() = default;
 CppAnnote::CppAnnote(CppAnnote &&) noexcept = default;
