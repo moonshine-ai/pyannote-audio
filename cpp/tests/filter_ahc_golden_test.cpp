@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-// Milestone 3: ``filter_embeddings`` + ``pdist`` / centroid ``linkage`` / ``fcluster`` vs ``vbx_reference.npz``.
+// Milestone 3: ``filter_embeddings`` + ``pdist`` / centroid ``linkage`` /
+// ``fcluster`` vs ``vbx_reference.npz``.
 
 #include <cmath>
 #include <cstdlib>
@@ -12,7 +13,8 @@
 #include "filter_train.h"
 #include "scipy_linkage.h"
 
-static double max_abs_diff(const std::vector<double>& a, const double* b, size_t n) {
+static double max_abs_diff(const std::vector<double>& a, const double* b,
+                           size_t n) {
   double m = 0.0;
   for (size_t i = 0; i < n; ++i) {
     m = std::max(m, std::abs(a[i] - b[i]));
@@ -26,7 +28,11 @@ static double max_abs_mat(const Eigen::MatrixXd& a, const double* b) {
   const int c = static_cast<int>(a.cols());
   for (int i = 0; i < r; ++i) {
     for (int j = 0; j < c; ++j) {
-      m = std::max(m, std::abs(a(i, j) - b[static_cast<std::size_t>(i) * static_cast<std::size_t>(c) + static_cast<std::size_t>(j)]));
+      m = std::max(
+          m,
+          std::abs(a(i, j) -
+                   b[static_cast<std::size_t>(i) * static_cast<std::size_t>(c) +
+                     static_cast<std::size_t>(j)]));
     }
   }
   return m;
@@ -34,14 +40,18 @@ static double max_abs_mat(const Eigen::MatrixXd& a, const double* b) {
 
 int main(int argc, char** argv) {
   if (argc != 3 && argc != 2) {
-    std::cerr << "Usage: filter_ahc_golden_test <vbx_reference.npz> [<utterance_dir>]\n";
-    std::cerr << "  With utterance_dir: also checks filter indices vs NPZ train_chunk_idx / train_speaker_idx\n"
-                 "  and raw train max-abs vs train_n before row-normalize (optional keys).\n";
+    std::cerr << "Usage: filter_ahc_golden_test <vbx_reference.npz> "
+                 "[<utterance_dir>]\n";
+    std::cerr << "  With utterance_dir: also checks filter indices vs NPZ "
+                 "train_chunk_idx / train_speaker_idx\n"
+                 "  and raw train max-abs vs train_n before row-normalize "
+                 "(optional keys).\n";
     return 2;
   }
   const std::string ref_path = argv[1];
   cnpy::npz_t z = cnpy::npz_load(ref_path);
-  if (!z.count("train_n") || !z.count("pdist_condensed") || !z.count("linkage_Z") || !z.count("ahc")) {
+  if (!z.count("train_n") || !z.count("pdist_condensed") ||
+      !z.count("linkage_Z") || !z.count("ahc")) {
     std::cerr << "NPZ missing train_n / pdist_condensed / linkage_Z / ahc\n";
     return 2;
   }
@@ -49,13 +59,16 @@ int main(int argc, char** argv) {
   const cnpy::NpyArray& pd = z["pdist_condensed"];
   const cnpy::NpyArray& lz = z["linkage_Z"];
   const cnpy::NpyArray& ah = z["ahc"];
-  if (tn.shape.size() != 2 || pd.shape.size() != 1 || lz.shape.size() != 1 || ah.shape.size() != 1) {
+  if (tn.shape.size() != 2 || pd.shape.size() != 1 || lz.shape.size() != 1 ||
+      ah.shape.size() != 1) {
     throw std::runtime_error("unexpected array ranks");
   }
   const int n = static_cast<int>(tn.shape[0]);
   const int d = static_cast<int>(tn.shape[1]);
   const size_t m = static_cast<size_t>(n * (n - 1) / 2);
-  if (pd.num_vals != m || lz.num_vals != static_cast<size_t>(4 * std::max(0, n - 1)) || ah.num_vals != static_cast<size_t>(n)) {
+  if (pd.num_vals != m ||
+      lz.num_vals != static_cast<size_t>(4 * std::max(0, n - 1)) ||
+      ah.num_vals != static_cast<size_t>(n)) {
     throw std::runtime_error("size mismatch");
   }
 
@@ -67,9 +80,12 @@ int main(int argc, char** argv) {
   if (argc == 3) {
     const std::string utter = argv[2];
     cnpy::npz_t emb_npz = cnpy::npz_load(utter + "/embeddings.npz");
-    cnpy::npz_t bin_npz = cnpy::npz_load(utter + "/binarized_segmentations.npz");
+    cnpy::npz_t bin_npz =
+        cnpy::npz_load(utter + "/binarized_segmentations.npz");
     if (!emb_npz.count("embeddings") || !bin_npz.count("data")) {
-      throw std::runtime_error("utterance dir missing embeddings.npz or binarized_segmentations.npz");
+      throw std::runtime_error(
+          "utterance dir missing embeddings.npz or "
+          "binarized_segmentations.npz");
     }
     const cnpy::NpyArray& emb = emb_npz["embeddings"];
     const cnpy::NpyArray& bin = bin_npz["data"];
@@ -84,15 +100,18 @@ int main(int argc, char** argv) {
     if (static_cast<int>(bin.shape[0]) != C || Sb != S || dim != d) {
       throw std::runtime_error("emb/bin shape mismatch vs train_n");
     }
-    std::vector<float> emb_f(emb.data<float>(), emb.data<float>() + emb.num_vals);
-    std::vector<float> bin_f(bin.data<float>(), bin.data<float>() + bin.num_vals);
+    std::vector<float> emb_f(emb.data<float>(),
+                             emb.data<float>() + emb.num_vals);
+    std::vector<float> bin_f(bin.data<float>(),
+                             bin.data<float>() + bin.num_vals);
     std::vector<int> c_idx;
     std::vector<int> s_idx;
     Eigen::MatrixXd train;
     cppannote::filter_train::filter_embeddings_train(
         C, F, S, dim, emb_f.data(), bin_f.data(), 0.2, c_idx, s_idx, train);
     if (static_cast<int>(c_idx.size()) != n) {
-      std::cerr << "FAIL: filter T=" << c_idx.size() << " expected " << n << "\n";
+      std::cerr << "FAIL: filter T=" << c_idx.size() << " expected " << n
+                << "\n";
       return 1;
     }
     if (z.count("train_chunk_idx") && z.count("train_speaker_idx")) {
@@ -115,7 +134,8 @@ int main(int argc, char** argv) {
       }
     }
     const double mad_train_n = max_abs_mat(train_n_cpp, tn.data<double>());
-    std::cout << "L2-normalized train vs train_n max_abs=" << mad_train_n << "\n";
+    std::cout << "L2-normalized train vs train_n max_abs=" << mad_train_n
+              << "\n";
     if (mad_train_n > 1e-9) {
       std::cerr << "FAIL: train_n mismatch after filter\n";
       return 1;
@@ -126,8 +146,10 @@ int main(int argc, char** argv) {
   const double* tnp = tn.data<double>();
   for (int i = 0; i < n; ++i) {
     for (int j = 0; j < d; ++j) {
-      xflat[static_cast<size_t>(i) * static_cast<size_t>(d) + static_cast<size_t>(j)] =
-          tnp[static_cast<size_t>(i) * static_cast<size_t>(d) + static_cast<size_t>(j)];
+      xflat[static_cast<size_t>(i) * static_cast<size_t>(d) +
+            static_cast<size_t>(j)] =
+          tnp[static_cast<size_t>(i) * static_cast<size_t>(d) +
+              static_cast<size_t>(j)];
     }
   }
   std::vector<double> pd_cpp;
@@ -152,7 +174,8 @@ int main(int argc, char** argv) {
       ++mism;
     }
   }
-  std::cout << "ahc mismatches=" << mism << " / " << n << " fcluster_threshold=" << fcluster_t << "\n";
+  std::cout << "ahc mismatches=" << mism << " / " << n
+            << " fcluster_threshold=" << fcluster_t << "\n";
 
   const double tol_pd = 1e-9;
   const double tol_z = 1e-9;

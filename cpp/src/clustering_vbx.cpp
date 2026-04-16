@@ -29,7 +29,8 @@ void row_normalize(Eigen::MatrixXd& M) {
   }
 }
 
-void cdist_cosine(const Eigen::MatrixXd& X, const Eigen::MatrixXd& C, Eigen::MatrixXd& out) {
+void cdist_cosine(const Eigen::MatrixXd& X, const Eigen::MatrixXd& C,
+                  Eigen::MatrixXd& out) {
   out.resize(X.rows(), C.rows());
   for (int i = 0; i < X.rows(); ++i) {
     double xn = X.row(i).norm();
@@ -47,11 +48,8 @@ void cdist_cosine(const Eigen::MatrixXd& X, const Eigen::MatrixXd& C, Eigen::Mat
   }
 }
 
-std::vector<int> kmeans_fit_predict(
-    const Eigen::MatrixXd& Xnorm,
-    int k,
-    int n_init,
-    std::uint32_t seed) {
+std::vector<int> kmeans_fit_predict(const Eigen::MatrixXd& Xnorm, int k,
+                                    int n_init, std::uint32_t seed) {
   const int n = static_cast<int>(Xnorm.rows());
   const int d = static_cast<int>(Xnorm.cols());
   if (n < k) {
@@ -115,7 +113,8 @@ std::vector<int> kmeans_fit_predict(
   return best_labs;
 }
 
-Eigen::MatrixXd centroids_from_labels(const Eigen::MatrixXd& train, const std::vector<int>& lab, int k) {
+Eigen::MatrixXd centroids_from_labels(const Eigen::MatrixXd& train,
+                                      const std::vector<int>& lab, int k) {
   Eigen::MatrixXd cent(k, train.cols());
   cent.setZero();
   std::vector<int> cnt(static_cast<std::size_t>(k), 0);
@@ -132,7 +131,8 @@ Eigen::MatrixXd centroids_from_labels(const Eigen::MatrixXd& train, const std::v
   return cent;
 }
 
-void hungarian_maximize(const Eigen::MatrixXd& score, std::vector<int>& assign_row_to_col) {
+void hungarian_maximize(const Eigen::MatrixXd& score,
+                        std::vector<int>& assign_row_to_col) {
   const int r = static_cast<int>(score.rows());
   const int c = static_cast<int>(score.cols());
   const int m = std::max(r, c);
@@ -143,10 +143,13 @@ void hungarian_maximize(const Eigen::MatrixXd& score, std::vector<int>& assign_r
     }
   }
   const double pad = mx + 1.0;
-  std::vector<std::vector<double>> cost(static_cast<std::size_t>(m), std::vector<double>(static_cast<std::size_t>(m), pad));
+  std::vector<std::vector<double>> cost(
+      static_cast<std::size_t>(m),
+      std::vector<double>(static_cast<std::size_t>(m), pad));
   for (int i = 0; i < r; ++i) {
     for (int j = 0; j < c; ++j) {
-      cost[static_cast<std::size_t>(i)][static_cast<std::size_t>(j)] = mx - score(i, j);
+      cost[static_cast<std::size_t>(i)][static_cast<std::size_t>(j)] =
+          mx - score(i, j);
     }
   }
   auto res = hungarian::min_cost_assignment(cost);
@@ -161,37 +164,25 @@ void hungarian_maximize(const Eigen::MatrixXd& score, std::vector<int>& assign_r
 
 }  // namespace
 
-void vbx_clustering_hard(
-    const plda_vbx::PldaModel& plda,
-    const VbxClusteringParams& pr,
-    int num_chunks,
-    int num_frames,
-    int num_speakers,
-    int dim,
-    const float* embeddings,
-    const float* binarized,
-    std::vector<std::int8_t>& hard_clusters) {
+void vbx_clustering_hard(const plda_vbx::PldaModel& plda,
+                         const VbxClusteringParams& pr, int num_chunks,
+                         int num_frames, int num_speakers, int dim,
+                         const float* embeddings, const float* binarized,
+                         std::vector<std::int8_t>& hard_clusters) {
   hard_clusters.assign(static_cast<std::size_t>(num_chunks * num_speakers), 0);
   std::vector<int> c_idx;
   std::vector<int> s_idx;
   Eigen::MatrixXd train;
   filter_train::filter_embeddings_train(
-      num_chunks,
-      num_frames,
-      num_speakers,
-      dim,
-      embeddings,
-      binarized,
-      pr.min_active_ratio,
-      c_idx,
-      s_idx,
-      train);
+      num_chunks, num_frames, num_speakers, dim, embeddings, binarized,
+      pr.min_active_ratio, c_idx, s_idx, train);
   const int T = static_cast<int>(train.rows());
   if (T < 2) {
     if (parity::env_parity_level() >= 1) {
       std::ostringstream oss;
-      oss << "vbxi skip: filtered_train_T=" << T << " chunks=" << num_chunks << " frames=" << num_frames
-          << " speakers=" << num_speakers << " dim=" << dim;
+      oss << "vbxi skip: filtered_train_T=" << T << " chunks=" << num_chunks
+          << " frames=" << num_frames << " speakers=" << num_speakers
+          << " dim=" << dim;
       parity::log_light(oss.str());
     }
     return;
@@ -199,7 +190,8 @@ void vbx_clustering_hard(
 
   Eigen::MatrixXd train_n = train;
   row_normalize(train_n);
-  std::vector<double> xflat(static_cast<std::size_t>(train_n.rows() * train_n.cols()));
+  std::vector<double> xflat(
+      static_cast<std::size_t>(train_n.rows() * train_n.cols()));
   for (int i = 0; i < train_n.rows(); ++i) {
     for (int j = 0; j < train_n.cols(); ++j) {
       xflat[static_cast<std::size_t>(i * train_n.cols() + j)] = train_n(i, j);
@@ -226,21 +218,9 @@ void vbx_clustering_hard(
   Eigen::VectorXd sp_pi;
   int vbx_iters_done = 0;
   double vbx_last_elbo_delta = 0.0;
-  plda_vbx::cluster_vbx(
-      ahc,
-      fea,
-      Phi,
-      pr.Fa,
-      pr.Fb,
-      pr.max_vbx_iters,
-      pr.init_smoothing,
-      q,
-      sp_pi,
-      1e-4,
-      nullptr,
-      nullptr,
-      &vbx_iters_done,
-      &vbx_last_elbo_delta);
+  plda_vbx::cluster_vbx(ahc, fea, Phi, pr.Fa, pr.Fb, pr.max_vbx_iters,
+                        pr.init_smoothing, q, sp_pi, 1e-4, nullptr, nullptr,
+                        &vbx_iters_done, &vbx_last_elbo_delta);
   std::vector<int> keep_cols;
   for (int j = 0; j < sp_pi.size(); ++j) {
     if (sp_pi(j) > 1e-7) {
@@ -285,7 +265,8 @@ void vbx_clustering_hard(
   for (int c = 0; c < num_chunks; ++c) {
     for (int s = 0; s < num_speakers; ++s) {
       for (int t = 0; t < dim; ++t) {
-        all(c * num_speakers + s, t) = static_cast<double>(embeddings[((c * num_speakers) + s) * dim + t]);
+        all(c * num_speakers + s, t) =
+            static_cast<double>(embeddings[((c * num_speakers) + s) * dim + t]);
       }
     }
   }
@@ -325,7 +306,8 @@ void vbx_clustering_hard(
       }
     }
   }
-  // Match ``np.nan_to_num(..., nan=np.nanmin(soft_clusters))`` before ``linear_sum_assignment``.
+  // Match ``np.nan_to_num(..., nan=np.nanmin(soft_clusters))`` before
+  // ``linear_sum_assignment``.
   for (int i = 0; i < soft.rows(); ++i) {
     for (int j = 0; j < soft.cols(); ++j) {
       if (!std::isfinite(soft(i, j))) {
@@ -348,7 +330,8 @@ void vbx_clustering_hard(
       for (int s = 0; s < num_speakers; ++s) {
         Eigen::Index mj = 0;
         blk.row(s).maxCoeff(&mj);
-        hard_clusters[static_cast<std::size_t>(c * num_speakers + s)] = static_cast<std::int8_t>(mj);
+        hard_clusters[static_cast<std::size_t>(c * num_speakers + s)] =
+            static_cast<std::int8_t>(mj);
       }
     }
   }
@@ -380,10 +363,12 @@ void vbx_clustering_hard(
       }
     }
     std::ostringstream oss;
-    oss << "vbxi C=" << num_chunks << " F=" << num_frames << " S=" << num_speakers << " dim=" << dim
-        << " T_train=" << T << " Kvb=" << Kvb << " max_hard_cluster=" << max_hc << " vbx_iters=" << vbx_iters_done
-        << " vbx_last_elbo_delta=" << vbx_last_elbo_delta
-        << " fea_fp=" << parity::fingerprint_float32(fea_f.data(), fea_f.size());
+    oss << "vbxi C=" << num_chunks << " F=" << num_frames
+        << " S=" << num_speakers << " dim=" << dim << " T_train=" << T
+        << " Kvb=" << Kvb << " max_hard_cluster=" << max_hc
+        << " vbx_iters=" << vbx_iters_done
+        << " vbx_last_elbo_delta=" << vbx_last_elbo_delta << " fea_fp="
+        << parity::fingerprint_float32(fea_f.data(), fea_f.size());
     parity::log_light(oss.str());
   }
 
@@ -403,7 +388,8 @@ void vbx_clustering_hard(
       };
       std::vector<double> buf;
       std::string mode = "w";
-      auto append_d = [&](const char* name, const double* p, const std::vector<size_t>& sh) {
+      auto append_d = [&](const char* name, const double* p,
+                          const std::vector<size_t>& sh) {
         cnpy::npz_save(zip, name, p, sh, mode);
         mode = "a";
       };
@@ -418,9 +404,11 @@ void vbx_clustering_hard(
       append_i32("spk_idx", s32.data(), s32.size());
 
       rowmajor_d(train, buf);
-      append_d("train", buf.data(), {static_cast<size_t>(T), static_cast<size_t>(dim)});
+      append_d("train", buf.data(),
+               {static_cast<size_t>(T), static_cast<size_t>(dim)});
       rowmajor_d(train_n, buf);
-      append_d("train_n", buf.data(), {static_cast<size_t>(T), static_cast<size_t>(dim)});
+      append_d("train_n", buf.data(),
+               {static_cast<size_t>(T), static_cast<size_t>(dim)});
 
       append_d("pdist_condensed", pd.data(), {pd.size()});
       append_d("linkage_Z", Z.data(), {Z.size()});
@@ -429,18 +417,25 @@ void vbx_clustering_hard(
       append_i32("ahc", ahc32.data(), ahc32.size());
 
       rowmajor_d(fea, buf);
-      append_d("fea", buf.data(), {static_cast<size_t>(fea.rows()), static_cast<size_t>(fea.cols())});
+      append_d(
+          "fea", buf.data(),
+          {static_cast<size_t>(fea.rows()), static_cast<size_t>(fea.cols())});
       append_d("Phi", Phi.data(), {static_cast<size_t>(Phi.size())});
 
       rowmajor_d(q, buf);
-      append_d("gamma", buf.data(), {static_cast<size_t>(q.rows()), static_cast<size_t>(q.cols())});
+      append_d("gamma", buf.data(),
+               {static_cast<size_t>(q.rows()), static_cast<size_t>(q.cols())});
       append_d("pi", sp_pi.data(), {static_cast<size_t>(sp_pi.size())});
 
       rowmajor_d(centroids, buf);
-      append_d("centroids", buf.data(), {static_cast<size_t>(centroids.rows()), static_cast<size_t>(centroids.cols())});
+      append_d("centroids", buf.data(),
+               {static_cast<size_t>(centroids.rows()),
+                static_cast<size_t>(centroids.cols())});
 
       rowmajor_d(soft, buf);
-      append_d("soft_clusters", buf.data(), {static_cast<size_t>(soft.rows()), static_cast<size_t>(soft.cols())});
+      append_d(
+          "soft_clusters", buf.data(),
+          {static_cast<size_t>(soft.rows()), static_cast<size_t>(soft.cols())});
 
       std::vector<std::int32_t> hc32(hard_clusters.size());
       for (size_t i = 0; i < hard_clusters.size(); ++i) {

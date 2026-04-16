@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
-// Realtime-oriented session API: append PCM chunks at arbitrary rates, run full diarization on a
-// bounded model-rate buffer on a coarse cadence (VBx / reconstruct are batch over the window).
-// Internal implementation detail — public callers should use CppAnnote (cpp-annote.h).
+// Realtime-oriented session API: append PCM chunks at arbitrary rates, run full
+// diarization on a bounded model-rate buffer on a coarse cadence (VBx /
+// reconstruct are batch over the window). Internal implementation detail —
+// public callers should use CppAnnote (cpp-annote.h).
 
 #ifndef CPP_ANNOTE_STREAMING_H_
 #define CPP_ANNOTE_STREAMING_H_
-
-#include "cpp-annote-engine.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -14,25 +13,30 @@
 #include <unordered_map>
 #include <vector>
 
+#include "cpp-annote-engine.h"
+
 namespace cppannote {
 
 struct StreamingDiarizationConfig {
-  /// Minimum seconds of new audio between VBx refreshes.  Converted internally to an
-  /// analysis-chunk count using the model's ``chunk_step_sec``.
+  /// Minimum seconds of new audio between VBx refreshes.  Converted internally
+  /// to an analysis-chunk count using the model's ``chunk_step_sec``.
   double refresh_every_sec = 2.0;
 };
 
 struct StreamingDiarizationTurn : DiarizationTurn {
-  /// Last time this ``(start, end, speaker)`` matched a prior snapshot; bumped when overlap match
-  /// fails or bounds/label change beyond tolerance after a refresh.
+  /// Last time this ``(start, end, speaker)`` matched a prior snapshot; bumped
+  /// when overlap match fails or bounds/label change beyond tolerance after a
+  /// refresh.
   double last_updated_at_input_end_sec = 0.;
 };
 
 struct StreamingDiarizationSnapshot {
   std::vector<StreamingDiarizationTurn> turns;
-  /// Cumulative duration of audio appended on this session (input timeline, from chunk lengths).
+  /// Cumulative duration of audio appended on this session (input timeline,
+  /// from chunk lengths).
   double input_end_sec = 0.;
-  /// Time on the input timeline corresponding to ``buffer[0]`` (after trimming).
+  /// Time on the input timeline corresponding to ``buffer[0]`` (after
+  /// trimming).
   double window_start_sec = 0.;
   int refresh_generation = 0;
 };
@@ -40,14 +44,17 @@ struct StreamingDiarizationSnapshot {
 /// Session bound to a ``CppAnnoteEngine``; the engine must outlive the session.
 class StreamingDiarizationSession {
  public:
-  StreamingDiarizationSession(CppAnnoteEngine& engine, StreamingDiarizationConfig config = {});
+  StreamingDiarizationSession(CppAnnoteEngine& engine,
+                              StreamingDiarizationConfig config = {});
 
   void start_session();
-  /// Append ``num_samples`` mono ``pcm`` at ``sample_rate`` Hz; resamples each chunk to the engine
-  /// model rate and concatenates on the session timeline.
-  void add_audio_chunk(const float* pcm, std::size_t num_samples, int sample_rate);
-  /// Current best snapshot (updated on refresh cadence; ``input_end_sec`` advances every chunk).
-StreamingDiarizationSnapshot snapshot() const;
+  /// Append ``num_samples`` mono ``pcm`` at ``sample_rate`` Hz; resamples each
+  /// chunk to the engine model rate and concatenates on the session timeline.
+  void add_audio_chunk(const float* pcm, std::size_t num_samples,
+                       int sample_rate);
+  /// Current best snapshot (updated on refresh cadence; ``input_end_sec``
+  /// advances every chunk).
+  StreamingDiarizationSnapshot snapshot() const;
 
   /// Force a VBx refresh and return the updated snapshot.
   StreamingDiarizationSnapshot refresh_and_snapshot();
@@ -56,7 +63,8 @@ StreamingDiarizationSnapshot snapshot() const;
   StreamingDiarizationSnapshot end_session();
 
   StreamingDiarizationSession(const StreamingDiarizationSession&) = delete;
-  StreamingDiarizationSession& operator=(const StreamingDiarizationSession&) = delete;
+  StreamingDiarizationSession& operator=(const StreamingDiarizationSession&) =
+      delete;
 
  private:
   void cache_new_chunks();
@@ -64,8 +72,7 @@ StreamingDiarizationSnapshot snapshot() const;
   void maybe_refresh(bool force);
   static void carry_last_updated_times(
       std::vector<StreamingDiarizationTurn>& next,
-      const std::vector<StreamingDiarizationTurn>& prev,
-      double input_end_sec);
+      const std::vector<StreamingDiarizationTurn>& prev, double input_end_sec);
 
   struct CachedChunk {
     std::vector<float> seg;  // (F * K)
@@ -74,7 +81,8 @@ StreamingDiarizationSnapshot snapshot() const;
 
   CppAnnoteEngine& engine_;
   StreamingDiarizationConfig cfg_{};
-  int refresh_every_chunks_ = 1;  // derived from cfg_.refresh_every_sec / chunk_step_sec
+  int refresh_every_chunks_ =
+      1;  // derived from cfg_.refresh_every_sec / chunk_step_sec
 
   std::vector<float> buffer_;
   double input_end_sec_ = 0.;

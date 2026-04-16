@@ -55,8 +55,9 @@ void ensure_parity_out_dir() {
   std::error_code ec;
   std::filesystem::create_directories(env_parity_out_dir(), ec);
   if (ec) {
-    std::cerr << "[PYANNOTE_CPP_PARITY] warning: could not create PYANNOTE_CPP_PARITY_OUT: " << ec.message()
-              << '\n';
+    std::cerr << "[PYANNOTE_CPP_PARITY] warning: could not create "
+                 "PYANNOTE_CPP_PARITY_OUT: "
+              << ec.message() << '\n';
   }
 }
 
@@ -70,7 +71,8 @@ std::string parity_clustering_npz_path() {
   return p.string();
 }
 
-std::string fingerprint_float32(const float* data, std::size_t n, std::size_t stride) {
+std::string fingerprint_float32(const float* data, std::size_t n,
+                                std::size_t stride) {
   if (stride < 1) {
     stride = 1;
   }
@@ -85,7 +87,8 @@ std::string fingerprint_float32(const float* data, std::size_t n, std::size_t st
   }
   h ^= static_cast<std::uint64_t>(n);
   char buf[32];
-  std::snprintf(buf, sizeof(buf), "%016llx", static_cast<unsigned long long>(h));
+  std::snprintf(buf, sizeof(buf), "%016llx",
+                static_cast<unsigned long long>(h));
   return std::string(buf);
 }
 

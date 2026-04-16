@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-// Min-cost assignment for a rectangular cost matrix (rows <= cols), CC0-style Hungarian.
+// Min-cost assignment for a rectangular cost matrix (rows <= cols), CC0-style
+// Hungarian.
 
 #ifndef HUNGARIAN_H_
 #define HUNGARIAN_H_
@@ -12,7 +13,8 @@
 
 namespace cppannote::hungarian {
 
-inline std::pair<double, std::vector<int>> min_cost_assignment(const std::vector<std::vector<double>>& cost) {
+inline std::pair<double, std::vector<int>> min_cost_assignment(
+    const std::vector<std::vector<double>>& cost) {
   const int n = static_cast<int>(cost.size());
   if (n == 0) {
     return {0.0, {}};
@@ -40,8 +42,10 @@ inline std::pair<double, std::vector<int>> min_cost_assignment(const std::vector
       int j1 = 0;
       for (int j = 1; j < big_m; ++j) {
         if (!used[static_cast<std::size_t>(j)]) {
-          const double cur = cost[static_cast<std::size_t>(i0 - 1)][static_cast<std::size_t>(j - 1)] -
-                             u[static_cast<std::size_t>(i0)] - v[static_cast<std::size_t>(j)];
+          const double cur = cost[static_cast<std::size_t>(i0 - 1)]
+                                 [static_cast<std::size_t>(j - 1)] -
+                             u[static_cast<std::size_t>(i0)] -
+                             v[static_cast<std::size_t>(j)];
           if (cur < minv[static_cast<std::size_t>(j)]) {
             minv[static_cast<std::size_t>(j)] = cur;
             way[static_cast<std::size_t>(j)] = j0;
@@ -71,7 +75,8 @@ inline std::pair<double, std::vector<int>> min_cost_assignment(const std::vector
   std::vector<int> assignment(static_cast<std::size_t>(n), -1);
   for (int j = 1; j < big_m; ++j) {
     if (p[static_cast<std::size_t>(j)] != 0) {
-      assignment[static_cast<std::size_t>(p[static_cast<std::size_t>(j)] - 1)] = j - 1;
+      assignment[static_cast<std::size_t>(p[static_cast<std::size_t>(j)] - 1)] =
+          j - 1;
     }
   }
   double total = 0.0;

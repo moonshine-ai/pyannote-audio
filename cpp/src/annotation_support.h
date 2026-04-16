@@ -44,22 +44,28 @@ inline Segment segment_union(const Segment& a, const Segment& b) {
   return Segment{std::min(a.start, b.start), std::max(a.end, b.end)};
 }
 
-// Gap (^): self is first operand, other is second (matches Python `self ^ other`).
+// Gap (^): self is first operand, other is second (matches Python `self ^
+// other`).
 inline Segment segment_gap(const Segment& self_, const Segment& other) {
   if (self_.empty() || other.empty()) {
-    throw std::runtime_error("segment_gap: gap with empty segment is undefined");
+    throw std::runtime_error(
+        "segment_gap: gap with empty segment is undefined");
   }
-  return Segment{std::min(self_.end, other.end), std::max(self_.start, other.start)};
+  return Segment{std::min(self_.end, other.end),
+                 std::max(self_.start, other.start)};
 }
 
 // Timeline.support_iter / Timeline.support(collar)
 // `segments` must be sorted by increasing start (Timeline order).
-inline std::vector<Segment> timeline_support_sorted(const std::vector<Segment>& segments, double collar) {
+inline std::vector<Segment> timeline_support_sorted(
+    const std::vector<Segment>& segments, double collar) {
   if (segments.empty()) {
     return {};
   }
   std::vector<Segment> segs = segments;
-  std::sort(segs.begin(), segs.end(), [](const Segment& x, const Segment& y) { return x.start < y.start; });
+  std::sort(segs.begin(), segs.end(), [](const Segment& x, const Segment& y) {
+    return x.start < y.start;
+  });
 
   Segment new_segment = segs[0];
   std::vector<Segment> out;
@@ -77,12 +83,12 @@ inline std::vector<Segment> timeline_support_sorted(const std::vector<Segment>& 
   return out;
 }
 
-// Annotation.support(collar): per-label timelines, fill gaps < collar, then merge strictly contiguous.
-// Input: map label -> list of segments for that label (any order).
-// Output: flat list of (label, segment) with new synthetic track order irrelevant to callers.
+// Annotation.support(collar): per-label timelines, fill gaps < collar, then
+// merge strictly contiguous. Input: map label -> list of segments for that
+// label (any order). Output: flat list of (label, segment) with new synthetic
+// track order irrelevant to callers.
 inline std::vector<std::pair<int, Segment>> annotation_support(
-    const std::map<int, std::vector<Segment>>& by_label,
-    double collar) {
+    const std::map<int, std::vector<Segment>>& by_label, double collar) {
   std::vector<std::pair<int, Segment>> flat;
   for (const auto& kv : by_label) {
     const int label = kv.first;

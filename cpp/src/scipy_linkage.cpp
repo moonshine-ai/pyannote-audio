@@ -13,10 +13,12 @@ namespace {
 
 constexpr double kInf = std::numeric_limits<double>::infinity();
 
-inline double centroid_update(double d_xi, double d_yi, double d_xy, int size_x, int size_y, int /*size_i*/) {
+inline double centroid_update(double d_xi, double d_yi, double d_xy, int size_x,
+                              int size_y, int /*size_i*/) {
   const double sx = static_cast<double>(size_x);
   const double sy = static_cast<double>(size_y);
-  const double num = (sx * d_xi * d_xi + sy * d_yi * d_yi) - (sx * sy * d_xy * d_xy) / (sx + sy);
+  const double num = (sx * d_xi * d_xi + sy * d_yi * d_yi) -
+                     (sx * sy * d_xy * d_xy) / (sx + sy);
   const double den = sx + sy;
   if (!(num >= 0.0) || !(den > 0.0)) {
     return 0.0;
@@ -24,25 +26,29 @@ inline double centroid_update(double d_xi, double d_yi, double d_xy, int size_x,
   return std::sqrt(num / den);
 }
 
-// SciPy ``fcluster(..., criterion='distance')`` uses ``get_max_dist_for_each_cluster`` then
-// ``cluster_monocrit`` (see ``scipy/cluster/_hierarchy.pyx``), not pairwise cophenetic union.
+// SciPy ``fcluster(..., criterion='distance')`` uses
+// ``get_max_dist_for_each_cluster`` then
+// ``cluster_monocrit`` (see ``scipy/cluster/_hierarchy.pyx``), not pairwise
+// cophenetic union.
 
 inline bool is_visited(const std::vector<unsigned char>& bitset, int i) {
-  return (bitset[static_cast<std::size_t>(i >> 3)] & static_cast<unsigned char>(1U << (i & 7))) != 0;
+  return (bitset[static_cast<std::size_t>(i >> 3)] &
+          static_cast<unsigned char>(1U << (i & 7))) != 0;
 }
 
 inline void set_visited(std::vector<unsigned char>& bitset, int i) {
-  bitset[static_cast<std::size_t>(i >> 3)] |= static_cast<unsigned char>(1U << (i & 7));
+  bitset[static_cast<std::size_t>(i >> 3)] |=
+      static_cast<unsigned char>(1U << (i & 7));
 }
 
-inline int visited_bytes(int n) {
-  return (((n * 2) - 1) >> 3) + 1;
-}
+inline int visited_bytes(int n) { return (((n * 2) - 1) >> 3) + 1; }
 
-void get_max_dist_for_each_cluster(const double* Z, int n, std::vector<double>& MD) {
+void get_max_dist_for_each_cluster(const double* Z, int n,
+                                   std::vector<double>& MD) {
   MD.assign(static_cast<std::size_t>(n), 0.0);
   std::vector<int> curr_node(static_cast<std::size_t>(n));
-  std::vector<unsigned char> visited(static_cast<std::size_t>(visited_bytes(n)), 0);
+  std::vector<unsigned char> visited(static_cast<std::size_t>(visited_bytes(n)),
+                                     0);
   auto Zat = [&](int row, int col) -> double {
     return Z[static_cast<std::size_t>(row) * 4 + static_cast<std::size_t>(col)];
   };
@@ -84,10 +90,12 @@ void get_max_dist_for_each_cluster(const double* Z, int n, std::vector<double>& 
   }
 }
 
-void cluster_monocrit(const double* Z, int n, const std::vector<double>& MC, double cutoff, std::vector<int>& T) {
+void cluster_monocrit(const double* Z, int n, const std::vector<double>& MC,
+                      double cutoff, std::vector<int>& T) {
   T.assign(static_cast<std::size_t>(n), 0);
   std::vector<int> curr_node(static_cast<std::size_t>(n));
-  std::vector<unsigned char> visited(static_cast<std::size_t>(visited_bytes(n)), 0);
+  std::vector<unsigned char> visited(static_cast<std::size_t>(visited_bytes(n)),
+                                     0);
   auto Zat = [&](int row, int col) -> double {
     return Z[static_cast<std::size_t>(row) * 4 + static_cast<std::size_t>(col)];
   };
@@ -140,7 +148,8 @@ void cluster_monocrit(const double* Z, int n, const std::vector<double>& MC, dou
 
 }  // namespace
 
-void pdist_euclidean(const std::vector<double>& X, int n, int d, std::vector<double>& dist) {
+void pdist_euclidean(const std::vector<double>& X, int n, int d,
+                     std::vector<double>& dist) {
   const std::size_t m = static_cast<std::size_t>(n * (n - 1) / 2);
   dist.assign(m, 0.0);
   for (int i = 0; i < n; ++i) {
@@ -157,7 +166,8 @@ void pdist_euclidean(const std::vector<double>& X, int n, int d, std::vector<dou
   }
 }
 
-void linkage_centroid_naive(const std::vector<double>& dist, int n, std::vector<double>& Z) {
+void linkage_centroid_naive(const std::vector<double>& dist, int n,
+                            std::vector<double>& Z) {
   Z.assign(static_cast<std::size_t>(n - 1) * 4, 0.0);
   std::vector<double> D = dist;
   std::vector<int> id_map(static_cast<std::size_t>(n));
@@ -195,8 +205,10 @@ void linkage_centroid_naive(const std::vector<double>& dist, int n, std::vector<
       ny = static_cast<int>(Z[static_cast<std::size_t>(id_y - n) * 4 + 3]);
     }
 
-    Z[static_cast<std::size_t>(merge) * 4 + 0] = static_cast<double>(std::min(id_x, id_y));
-    Z[static_cast<std::size_t>(merge) * 4 + 1] = static_cast<double>(std::max(id_x, id_y));
+    Z[static_cast<std::size_t>(merge) * 4 + 0] =
+        static_cast<double>(std::min(id_x, id_y));
+    Z[static_cast<std::size_t>(merge) * 4 + 1] =
+        static_cast<double>(std::max(id_x, id_y));
     Z[static_cast<std::size_t>(merge) * 4 + 2] = current_min;
     Z[static_cast<std::size_t>(merge) * 4 + 3] = static_cast<double>(nx + ny);
 
@@ -212,13 +224,9 @@ void linkage_centroid_naive(const std::vector<double>& dist, int n, std::vector<
       if (id_i >= n) {
         ni = static_cast<int>(Z[static_cast<std::size_t>(id_i - n) * 4 + 3]);
       }
-      D[condensed_index(n, i, y)] = centroid_update(
-          D[condensed_index(n, i, x)],
-          D[condensed_index(n, i, y)],
-          current_min,
-          nx,
-          ny,
-          ni);
+      D[condensed_index(n, i, y)] =
+          centroid_update(D[condensed_index(n, i, x)],
+                          D[condensed_index(n, i, y)], current_min, nx, ny, ni);
       if (i < x) {
         D[condensed_index(n, i, x)] = kInf;
       }
@@ -226,17 +234,20 @@ void linkage_centroid_naive(const std::vector<double>& dist, int n, std::vector<
   }
 }
 
-void fcluster_distance(const std::vector<double>& Z, int n, double cutoff, std::vector<int>& T) {
+void fcluster_distance(const std::vector<double>& Z, int n, double cutoff,
+                       std::vector<int>& T) {
   std::vector<double> MD;
   get_max_dist_for_each_cluster(Z.data(), n, MD);
   cluster_monocrit(Z.data(), n, MD, cutoff, T);
 }
 
-void remap_labels_contiguous(const std::vector<int>& labels_one_based, std::vector<int>& out) {
+void remap_labels_contiguous(const std::vector<int>& labels_one_based,
+                             std::vector<int>& out) {
   const int n = static_cast<int>(labels_one_based.size());
   std::vector<int> z(static_cast<std::size_t>(n));
   for (int i = 0; i < n; ++i) {
-    z[static_cast<std::size_t>(i)] = labels_one_based[static_cast<std::size_t>(i)] - 1;
+    z[static_cast<std::size_t>(i)] =
+        labels_one_based[static_cast<std::size_t>(i)] - 1;
   }
   std::vector<int> uniq = z;
   std::sort(uniq.begin(), uniq.end());

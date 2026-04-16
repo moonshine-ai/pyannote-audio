@@ -2,8 +2,6 @@
 
 #include "cpp-annote-streaming.h"
 
-#include "wav_pcm_float32.h"
-
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -14,6 +12,8 @@
 #include <limits>
 #include <utility>
 #include <vector>
+
+#include "wav_pcm_float32.h"
 
 namespace cppannote {
 namespace {
@@ -27,16 +27,18 @@ double segment_iou(double a0, double a1, double b0, double b1) {
   return inter / span;
 }
 
-
 }  // namespace
 
-StreamingDiarizationSession::StreamingDiarizationSession(CppAnnoteEngine& engine, StreamingDiarizationConfig config)
+StreamingDiarizationSession::StreamingDiarizationSession(
+    CppAnnoteEngine& engine, StreamingDiarizationConfig config)
     : engine_(engine), cfg_(std::move(config)) {
   cfg_.refresh_every_sec = std::max(0.0, cfg_.refresh_every_sec);
   const double step = engine_.segmentation_chunk_step_sec();
-  refresh_every_chunks_ = (step > 0.0)
-      ? std::max(1, static_cast<int>(std::lrint(cfg_.refresh_every_sec / step)))
-      : 1;
+  refresh_every_chunks_ =
+      (step > 0.0)
+          ? std::max(
+                1, static_cast<int>(std::lrint(cfg_.refresh_every_sec / step)))
+          : 1;
 }
 
 void StreamingDiarizationSession::start_session() {
@@ -59,23 +61,25 @@ void StreamingDiarizationSession::trim_buffer_if_needed() {
   // Only the tail analysis chunk ever needs raw audio (completed chunks are
   // fully captured in the seg/emb cache).  Keep the chunk window plus two
   // steps of margin so the tail always has room to be recomputed.
-  const double keep_sec =
-      engine_.segmentation_chunk_duration_sec() + 2.0 * engine_.segmentation_chunk_step_sec();
-  const int step_samples = static_cast<int>(
-      std::lrint(engine_.segmentation_chunk_step_sec() * static_cast<double>(sr)));
-  const std::size_t cap =
-      static_cast<std::size_t>(std::max(1., keep_sec) * static_cast<double>(sr));
+  const double keep_sec = engine_.segmentation_chunk_duration_sec() +
+                          2.0 * engine_.segmentation_chunk_step_sec();
+  const int step_samples = static_cast<int>(std::lrint(
+      engine_.segmentation_chunk_step_sec() * static_cast<double>(sr)));
+  const std::size_t cap = static_cast<std::size_t>(std::max(1., keep_sec) *
+                                                   static_cast<double>(sr));
   if (buffer_.size() <= cap) {
     return;
   }
   std::size_t drop = buffer_.size() - cap;
   if (step_samples > 0) {
-    drop = (drop / static_cast<std::size_t>(step_samples)) * static_cast<std::size_t>(step_samples);
+    drop = (drop / static_cast<std::size_t>(step_samples)) *
+           static_cast<std::size_t>(step_samples);
   }
   if (drop == 0) {
     return;
   }
-  buffer_.erase(buffer_.begin(), buffer_.begin() + static_cast<std::ptrdiff_t>(drop));
+  buffer_.erase(buffer_.begin(),
+                buffer_.begin() + static_cast<std::ptrdiff_t>(drop));
   window_start_sec_ += static_cast<double>(drop) / static_cast<double>(sr);
   buffer_abs_start_samples_ += static_cast<int64_t>(drop);
   // Cache entries for trimmed audio are intentionally kept — VBx runs on the
@@ -87,15 +91,16 @@ void StreamingDiarizationSession::cache_new_chunks() {
   const int sr_model = engine_.segmentation_model_sample_rate();
   const int num_channels = engine_.segmentation_num_channels();
   const int chunk_num_samples = engine_.segmentation_chunk_num_samples();
-  const int step_samples = static_cast<int>(
-      std::lrint(engine_.segmentation_chunk_step_sec() * static_cast<double>(sr_model)));
+  const int step_samples = static_cast<int>(std::lrint(
+      engine_.segmentation_chunk_step_sec() * static_cast<double>(sr_model)));
   if (step_samples <= 0 || chunk_num_samples <= 0) {
     return;
   }
   const int64_t num_samples_i = static_cast<int64_t>(buffer_.size());
   int64_t num_complete_chunks = 0;
   if (num_samples_i >= chunk_num_samples) {
-    num_complete_chunks = (num_samples_i - chunk_num_samples) / step_samples + 1;
+    num_complete_chunks =
+        (num_samples_i - chunk_num_samples) / step_samples + 1;
   }
   for (int64_t c = 0; c < num_complete_chunks; ++c) {
     const int64_t buf_off = c * step_samples;
@@ -104,7 +109,8 @@ void StreamingDiarizationSession::cache_new_chunks() {
       continue;
     }
     auto chunk_buf = CppAnnoteEngine::extract_chunk_audio(
-        buffer_.data(), num_samples_i, buf_off, chunk_num_samples, num_channels);
+        buffer_.data(), num_samples_i, buf_off, chunk_num_samples,
+        num_channels);
     auto seg = engine_.run_segmentation_ort_single(chunk_buf.data());
     auto mono = CppAnnoteEngine::extract_chunk_audio(
         buffer_.data(), num_samples_i, buf_off, chunk_num_samples, 1);
@@ -113,20 +119,24 @@ void StreamingDiarizationSession::cache_new_chunks() {
   }
 }
 
-void StreamingDiarizationSession::add_audio_chunk(const float* pcm, std::size_t num_samples, int sample_rate) {
+void StreamingDiarizationSession::add_audio_chunk(const float* pcm,
+                                                  std::size_t num_samples,
+                                                  int sample_rate) {
   if (pcm == nullptr || num_samples == 0) {
     snapshot_.input_end_sec = input_end_sec_;
     return;
   }
   if (sample_rate <= 0) {
-    throw std::runtime_error("StreamingDiarizationSession: sample_rate must be positive");
+    throw std::runtime_error(
+        "StreamingDiarizationSession: sample_rate must be positive");
   }
   const int sr_model = engine_.segmentation_model_sample_rate();
   std::vector<float> chunk(pcm, pcm + num_samples);
   std::vector<float> res =
       wav_pcm::linear_resample(chunk, sample_rate, sr_model);
   buffer_.insert(buffer_.end(), res.begin(), res.end());
-  input_end_sec_ += static_cast<double>(num_samples) / static_cast<double>(sample_rate);
+  input_end_sec_ +=
+      static_cast<double>(num_samples) / static_cast<double>(sample_rate);
   cache_new_chunks();
   trim_buffer_if_needed();
   snapshot_.input_end_sec = input_end_sec_;
@@ -136,8 +146,7 @@ void StreamingDiarizationSession::add_audio_chunk(const float* pcm, std::size_t 
 
 void StreamingDiarizationSession::carry_last_updated_times(
     std::vector<StreamingDiarizationTurn>& next,
-    const std::vector<StreamingDiarizationTurn>& prev,
-    double input_end_sec) {
+    const std::vector<StreamingDiarizationTurn>& prev, double input_end_sec) {
   constexpr double kTol = 0.25;
   constexpr double kIouMin = 0.2;
   for (auto& t : next) {
@@ -152,7 +161,8 @@ void StreamingDiarizationSession::carry_last_updated_times(
       }
     }
     if (best != nullptr && best_iou >= kIouMin && best->speaker == t.speaker &&
-        std::abs(t.start - best->start) < kTol && std::abs(t.end - best->end) < kTol) {
+        std::abs(t.start - best->start) < kTol &&
+        std::abs(t.end - best->end) < kTol) {
       t.last_updated_at_input_end_sec = best->last_updated_at_input_end_sec;
     }
   }
@@ -165,7 +175,8 @@ void StreamingDiarizationSession::maybe_refresh(bool force) {
   const int num_channels = engine_.segmentation_num_channels();
   const int chunk_num_samples = engine_.segmentation_chunk_num_samples();
   const double chunk_step_sec = engine_.segmentation_chunk_step_sec();
-  const int step_samples = static_cast<int>(std::lrint(chunk_step_sec * static_cast<double>(sr_model)));
+  const int step_samples = static_cast<int>(
+      std::lrint(chunk_step_sec * static_cast<double>(sr_model)));
   if (step_samples <= 0 || chunk_num_samples <= 0) {
     return;
   }
@@ -173,10 +184,12 @@ void StreamingDiarizationSession::maybe_refresh(bool force) {
   const int64_t num_samples_i = static_cast<int64_t>(buffer_.size());
   int64_t num_complete_chunks = 0;
   if (num_samples_i >= chunk_num_samples) {
-    num_complete_chunks = (num_samples_i - chunk_num_samples) / step_samples + 1;
+    num_complete_chunks =
+        (num_samples_i - chunk_num_samples) / step_samples + 1;
   }
   const bool has_last =
-      (num_samples_i < chunk_num_samples) || ((num_samples_i - chunk_num_samples) % step_samples > 0);
+      (num_samples_i < chunk_num_samples) ||
+      ((num_samples_i - chunk_num_samples) % step_samples > 0);
   const int64_t total_chunks = num_complete_chunks + (has_last ? 1 : 0);
   if (total_chunks <= 0) {
     return;
@@ -186,12 +199,15 @@ void StreamingDiarizationSession::maybe_refresh(bool force) {
   // the buffer's chunk count which saturates once the buffer is full.
   const int64_t total_chunks_ever =
       (buffer_abs_start_samples_ + num_samples_i >= chunk_num_samples)
-          ? (buffer_abs_start_samples_ + num_samples_i - chunk_num_samples) / step_samples + 1
+          ? (buffer_abs_start_samples_ + num_samples_i - chunk_num_samples) /
+                    step_samples +
+                1
           : 0;
 
   if (!force) {
     if (last_refresh_total_chunks_ >= 0) {
-      if (total_chunks_ever < last_refresh_total_chunks_ + refresh_every_chunks_) {
+      if (total_chunks_ever <
+          last_refresh_total_chunks_ + refresh_every_chunks_) {
         return;
       }
     }
@@ -209,7 +225,8 @@ void StreamingDiarizationSession::maybe_refresh(bool force) {
     const int64_t abs_off = buffer_abs_start_samples_ + buf_off;
     tail_abs_off = abs_off;
     auto chunk_buf = CppAnnoteEngine::extract_chunk_audio(
-        buffer_.data(), num_samples_i, buf_off, chunk_num_samples, num_channels);
+        buffer_.data(), num_samples_i, buf_off, chunk_num_samples,
+        num_channels);
     auto seg = engine_.run_segmentation_ort_single(chunk_buf.data());
     auto mono = CppAnnoteEngine::extract_chunk_audio(
         buffer_.data(), num_samples_i, buf_off, chunk_num_samples, 1);
@@ -220,9 +237,10 @@ void StreamingDiarizationSession::maybe_refresh(bool force) {
 
   const auto t_after_seg_emb = Clock::now();
 
-  // Assemble full-history tensors from ALL cache entries (sorted by abs offset).
-  // VBx sees every chunk ever processed, producing batch-quality clustering
-  // even though ORT inference is bounded to the current audio buffer.
+  // Assemble full-history tensors from ALL cache entries (sorted by abs
+  // offset). VBx sees every chunk ever processed, producing batch-quality
+  // clustering even though ORT inference is bounded to the current audio
+  // buffer.
   std::vector<int64_t> all_offsets;
   all_offsets.reserve(chunk_cache_.size());
   for (const auto& kv : chunk_cache_) {
@@ -239,17 +257,22 @@ void StreamingDiarizationSession::maybe_refresh(bool force) {
     return;
   }
 
-  std::vector<float> seg_out(static_cast<size_t>(C_full) * static_cast<size_t>(FK));
-  std::vector<float> emb_all(
-      static_cast<size_t>(C_full) * static_cast<size_t>(K) * static_cast<size_t>(dim),
-      std::numeric_limits<float>::quiet_NaN());
+  std::vector<float> seg_out(static_cast<size_t>(C_full) *
+                             static_cast<size_t>(FK));
+  std::vector<float> emb_all(static_cast<size_t>(C_full) *
+                                 static_cast<size_t>(K) *
+                                 static_cast<size_t>(dim),
+                             std::numeric_limits<float>::quiet_NaN());
 
   for (int i = 0; i < C_full; ++i) {
     const auto& cached = chunk_cache_.at(all_offsets[i]);
     std::memcpy(&seg_out[static_cast<size_t>(i) * static_cast<size_t>(FK)],
                 cached.seg.data(), static_cast<size_t>(FK) * sizeof(float));
-    std::memcpy(&emb_all[static_cast<size_t>(i) * static_cast<size_t>(K) * static_cast<size_t>(dim)],
-                cached.emb.data(), static_cast<size_t>(K) * static_cast<size_t>(dim) * sizeof(float));
+    std::memcpy(
+        &emb_all[static_cast<size_t>(i) * static_cast<size_t>(K) *
+                 static_cast<size_t>(dim)],
+        cached.emb.data(),
+        static_cast<size_t>(K) * static_cast<size_t>(dim) * sizeof(float));
   }
 
   // Evict the tail chunk from cache — it was computed with zero-padded audio
@@ -260,27 +283,31 @@ void StreamingDiarizationSession::maybe_refresh(bool force) {
 
   DiarizationProfile prof;
   prof.segmentation_ort_sec = 0.;
-  prof.embedding_ort_sec = std::chrono::duration<double>(t_after_seg_emb - t_seg_start).count();
+  prof.embedding_ort_sec =
+      std::chrono::duration<double>(t_after_seg_emb - t_seg_start).count();
 
-  std::vector<DiarizationTurn> raw = engine_.cluster_and_decode(seg_out, emb_all, C_full, prof);
+  std::vector<DiarizationTurn> raw =
+      engine_.cluster_and_decode(seg_out, emb_all, C_full, prof);
 
   prof.segmentation_ort_sec = 0.;
-  prof.total_sec = std::chrono::duration<double>(Clock::now() - t_seg_start).count();
+  prof.total_sec =
+      std::chrono::duration<double>(Clock::now() - t_seg_start).count();
   cumulative_profile_.accumulate(prof);
   ++refresh_count_;
 
   char logbuf[384];
   std::snprintf(logbuf, sizeof(logbuf),
-                "[streaming refresh #%d] vbx_chunks=%d (new_ort=%d)  ort=%.3fs  vbx=%.3fs  recon=%.3fs  total=%.3fs  buf=%.1fs  cache=%zu",
-                refresh_count_, C_full, new_ort_count,
-                prof.embedding_ort_sec,
-                prof.clustering_vbx_sec, prof.reconstruct_sec,
-                prof.total_sec,
-                static_cast<double>(buffer_.size()) / static_cast<double>(std::max(1, sr_model)),
+                "[streaming refresh #%d] vbx_chunks=%d (new_ort=%d)  ort=%.3fs "
+                " vbx=%.3fs  recon=%.3fs  total=%.3fs  buf=%.1fs  cache=%zu",
+                refresh_count_, C_full, new_ort_count, prof.embedding_ort_sec,
+                prof.clustering_vbx_sec, prof.reconstruct_sec, prof.total_sec,
+                static_cast<double>(buffer_.size()) /
+                    static_cast<double>(std::max(1, sr_model)),
                 chunk_cache_.size());
   std::cerr << logbuf << "\n";
 
-  // VBx ran on the full history so turns already have stream-absolute timestamps.
+  // VBx ran on the full history so turns already have stream-absolute
+  // timestamps.
   std::vector<StreamingDiarizationTurn> next;
   next.reserve(raw.size());
   for (const DiarizationTurn& t : raw) {
@@ -304,7 +331,8 @@ StreamingDiarizationSnapshot StreamingDiarizationSession::snapshot() const {
   return snapshot_;
 }
 
-StreamingDiarizationSnapshot StreamingDiarizationSession::refresh_and_snapshot() {
+StreamingDiarizationSnapshot
+StreamingDiarizationSession::refresh_and_snapshot() {
   maybe_refresh(true);
   snapshot_.input_end_sec = input_end_sec_;
   snapshot_.window_start_sec = window_start_sec_;
@@ -316,7 +344,8 @@ StreamingDiarizationSnapshot StreamingDiarizationSession::end_session() {
   snapshot_.input_end_sec = input_end_sec_;
   snapshot_.window_start_sec = window_start_sec_;
 
-  std::cerr << "[streaming summary] " << refresh_count_ << " refreshes, cumulative breakdown:\n";
+  std::cerr << "[streaming summary] " << refresh_count_
+            << " refreshes, cumulative breakdown:\n";
   cumulative_profile_.print(std::cerr, "  ");
 
   return snapshot_;

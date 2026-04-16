@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-// ``VBxClustering.__call__`` (filter → AHC → PLDA → VBx → optional KMeans → cdist → assignment).
+// ``VBxClustering.__call__`` (filter → AHC → PLDA → VBx → optional KMeans →
+// cdist → assignment).
 
 #ifndef CLUSTERING_VBX_H_
 #define CLUSTERING_VBX_H_
@@ -24,20 +25,17 @@ struct VbxClusteringParams {
   bool metric_is_cosine = true;
   int min_clusters = 1;
   int max_clusters = 1000000000;
-  int num_clusters = -1;  // optional forced count (``num_speakers``); -1 = unset
+  int num_clusters =
+      -1;  // optional forced count (``num_speakers``); -1 = unset
 };
 
-/// ``embeddings`` row-major ``(num_chunks * num_speakers * dim)``; ``binarized`` ``(num_chunks * num_frames * num_speakers)``.
-void vbx_clustering_hard(
-    const plda_vbx::PldaModel& plda,
-    const VbxClusteringParams& pr,
-    int num_chunks,
-    int num_frames,
-    int num_speakers,
-    int dim,
-    const float* embeddings,
-    const float* binarized,
-    std::vector<std::int8_t>& hard_clusters);
+/// ``embeddings`` row-major ``(num_chunks * num_speakers * dim)``;
+/// ``binarized`` ``(num_chunks * num_frames * num_speakers)``.
+void vbx_clustering_hard(const plda_vbx::PldaModel& plda,
+                         const VbxClusteringParams& pr, int num_chunks,
+                         int num_frames, int num_speakers, int dim,
+                         const float* embeddings, const float* binarized,
+                         std::vector<std::int8_t>& hard_clusters);
 
 }  // namespace cppannote::clustering_vbx
 

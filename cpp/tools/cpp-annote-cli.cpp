@@ -18,7 +18,8 @@
 
 namespace fs = std::filesystem;
 
-static std::string get_arg(int argc, char** argv, const char* key, const std::string& def = "") {
+static std::string get_arg(int argc, char** argv, const char* key,
+                           const std::string& def = "") {
   for (int i = 1; i < argc - 1; ++i) {
     if (std::string(argv[i]) == key) {
       return argv[i + 1];
@@ -68,7 +69,8 @@ static std::vector<std::string> split_tab_row(const std::string& line) {
   return cols;
 }
 
-static std::vector<DiarJob> load_manifest_jobs(const std::string& manifest_path, const std::string& out_dir) {
+static std::vector<DiarJob> load_manifest_jobs(const std::string& manifest_path,
+                                               const std::string& out_dir) {
   std::vector<DiarJob> jobs;
   std::ifstream f(manifest_path);
   if (!f) {
@@ -88,16 +90,20 @@ static std::vector<DiarJob> load_manifest_jobs(const std::string& manifest_path,
     }
     if (cols.size() == 1) {
       if (out_dir.empty()) {
-        throw std::runtime_error("manifest " + manifest_path + " line " + std::to_string(lineno) +
-                                 ": single-column lines require --out-dir (wav path only)");
+        throw std::runtime_error(
+            "manifest " + manifest_path + " line " + std::to_string(lineno) +
+            ": single-column lines require --out-dir (wav path only)");
       }
       const fs::path wv(cols[0]);
-      jobs.push_back({cols[0], (fs::path(out_dir) / (wv.stem().string() + ".json")).string()});
+      jobs.push_back(
+          {cols[0],
+           (fs::path(out_dir) / (wv.stem().string() + ".json")).string()});
     } else if (cols.size() == 2) {
       jobs.push_back({cols[0], cols[1]});
     } else {
-      throw std::runtime_error("manifest " + manifest_path + " line " + std::to_string(lineno) +
-                               ": expected 1 or 2 tab-separated fields (wav | wav<TAB>out)");
+      throw std::runtime_error(
+          "manifest " + manifest_path + " line " + std::to_string(lineno) +
+          ": expected 1 or 2 tab-separated fields (wav | wav<TAB>out)");
     }
   }
   if (jobs.empty()) {
@@ -106,7 +112,8 @@ static std::vector<DiarJob> load_manifest_jobs(const std::string& manifest_path,
   return jobs;
 }
 
-static std::vector<DiarJob> load_wav_list_jobs(const std::string& list_path, const fs::path& out_dir) {
+static std::vector<DiarJob> load_wav_list_jobs(const std::string& list_path,
+                                               const fs::path& out_dir) {
   std::vector<DiarJob> jobs;
   std::ifstream f(list_path);
   if (!f) {
@@ -130,24 +137,23 @@ static std::vector<DiarJob> load_wav_list_jobs(const std::string& list_path, con
   return jobs;
 }
 
-static void print_timing(const char* tag, const std::string& path, double audio_sec, double wall_sec) {
+static void print_timing(const char* tag, const std::string& path,
+                         double audio_sec, double wall_sec) {
   char buf[256];
   if (audio_sec > 0. && wall_sec > 0.) {
     std::snprintf(buf, sizeof(buf),
-                  "[%s] %s  audio=%.2fs  wall=%.3fs  RTF=%.2fx\n",
-                  tag, path.c_str(), audio_sec, wall_sec, audio_sec / wall_sec);
+                  "[%s] %s  audio=%.2fs  wall=%.3fs  RTF=%.2fx\n", tag,
+                  path.c_str(), audio_sec, wall_sec, audio_sec / wall_sec);
   } else {
-    std::snprintf(buf, sizeof(buf),
-                  "[%s] %s  audio=%.2fs  wall=%.3fs\n",
-                  tag, path.c_str(), audio_sec, wall_sec);
+    std::snprintf(buf, sizeof(buf), "[%s] %s  audio=%.2fs  wall=%.3fs\n", tag,
+                  path.c_str(), audio_sec, wall_sec);
   }
   std::cerr << buf;
 }
 
 static void run_diarize(cppannote::CppAnnote& engine,
-                          const std::vector<DiarJob>& jobs,
-                          double refresh_every_sec,
-                          bool continue_on_error) {
+                        const std::vector<DiarJob>& jobs,
+                        double refresh_every_sec, bool continue_on_error) {
   int n_fail = 0;
   double total_audio_sec = 0.;
   double total_wall_sec = 0.;
@@ -156,9 +162,11 @@ static void run_diarize(cppannote::CppAnnote& engine,
       const DiarJob& job = jobs[i];
 
       int wav_sr = 0;
-      std::vector<float> mono = wav_pcm::load_wav_pcm16_mono_float32(job.wav, wav_sr);
-      const double audio_sec = wav_sr > 0
-          ? static_cast<double>(mono.size()) / static_cast<double>(wav_sr) : 0.;
+      std::vector<float> mono =
+          wav_pcm::load_wav_pcm16_mono_float32(job.wav, wav_sr);
+      const double audio_sec = wav_sr > 0 ? static_cast<double>(mono.size()) /
+                                                static_cast<double>(wav_sr)
+                                          : 0.;
       if (!job.out.empty()) {
         const fs::path outp(job.out);
         const fs::path parent = outp.parent_path();
@@ -171,14 +179,15 @@ static void run_diarize(cppannote::CppAnnote& engine,
       engine.start_stream(stream_id);
 
       constexpr double kSimChunkSec = 1.0;
-      const std::size_t chunk_samples =
-          static_cast<std::size_t>(std::max(1., kSimChunkSec * static_cast<double>(wav_sr)));
+      const std::size_t chunk_samples = static_cast<std::size_t>(
+          std::max(1., kSimChunkSec * static_cast<double>(wav_sr)));
       const auto t0 = std::chrono::steady_clock::now();
       std::size_t offset = 0;
       while (offset < mono.size()) {
         const std::size_t n = std::min(chunk_samples, mono.size() - offset);
         engine.add_audio_to_stream(stream_id, mono.data() + offset,
-                                   static_cast<uint64_t>(n), static_cast<int32_t>(wav_sr));
+                                   static_cast<uint64_t>(n),
+                                   static_cast<int32_t>(wav_sr));
         offset += n;
       }
 
@@ -186,17 +195,18 @@ static void run_diarize(cppannote::CppAnnote& engine,
       engine.free_stream(stream_id);
 
       const auto t1 = std::chrono::steady_clock::now();
-      const double wall_sec =
-          std::chrono::duration<double>(t1 - t0).count();
+      const double wall_sec = std::chrono::duration<double>(t1 - t0).count();
 
       if (job.out.empty()) {
         results.write_json(std::cout);
       } else {
         results.write_json(job.out);
         if (results.turns.empty()) {
-          std::cerr << "[diarize] Wrote empty diarization -> " << job.out << "\n";
+          std::cerr << "[diarize] Wrote empty diarization -> " << job.out
+                    << "\n";
         } else {
-          std::cerr << "[diarize] Wrote " << job.out << " (" << results.turns.size() << " turns)\n";
+          std::cerr << "[diarize] Wrote " << job.out << " ("
+                    << results.turns.size() << " turns)\n";
         }
       }
 
@@ -206,7 +216,8 @@ static void run_diarize(cppannote::CppAnnote& engine,
     } catch (const std::exception& e) {
       std::cerr << "ERROR";
       if (jobs.size() > 1) {
-        std::cerr << " [" << (i + 1) << "/" << jobs.size() << "] " << jobs[i].wav;
+        std::cerr << " [" << (i + 1) << "/" << jobs.size() << "] "
+                  << jobs[i].wav;
       }
       std::cerr << ": " << e.what() << "\n";
       ++n_fail;
@@ -216,7 +227,8 @@ static void run_diarize(cppannote::CppAnnote& engine,
     }
   }
   if (jobs.size() > 1) {
-    print_timing("diarize total", std::to_string(jobs.size()) + " files", total_audio_sec, total_wall_sec);
+    print_timing("diarize total", std::to_string(jobs.size()) + " files",
+                 total_audio_sec, total_wall_sec);
   }
   if (n_fail > 0) {
     throw std::runtime_error(std::to_string(n_fail) + " job(s) failed");
@@ -226,33 +238,44 @@ static void run_diarize(cppannote::CppAnnote& engine,
 int main(int argc, char** argv) {
   if (argc < 2 || has_flag(argc, argv, "--help")) {
     std::cerr
-        << "cpp-annote-cli — WAV + segmentation ORT + ORT embedding + VBx -> diarization JSON.\n\n"
-        << "Audio is fed through a streaming session that caches ORT results incrementally\n"
+        << "cpp-annote-cli — WAV + segmentation ORT + ORT embedding + VBx -> "
+           "diarization JSON.\n\n"
+        << "Audio is fed through a streaming session that caches ORT results "
+           "incrementally\n"
         << "and runs VBx clustering on a configurable cadence.\n\n"
         << "Model paths (default to artifacts/ relative to CWD):\n"
-        << "  --segmentation-onnx PATH   (default: artifacts/community1-segmentation.onnx)\n"
-        << "  --embedding-onnx PATH      (default: artifacts/community1-embedding.onnx)\n\n"
+        << "  --segmentation-onnx PATH   (default: "
+           "artifacts/community1-segmentation.onnx)\n"
+        << "  --embedding-onnx PATH      (default: "
+           "artifacts/community1-embedding.onnx)\n\n"
         << "Single file:\n"
         << "  --wav PATH\n"
-        << "  --out PATH                 output diarization.json (omit to print to stdout)\n\n"
-        << "Multi-file — tab-separated manifest (one job per line, # comments OK):\n"
+        << "  --out PATH                 output diarization.json (omit to "
+           "print to stdout)\n\n"
+        << "Multi-file — tab-separated manifest (one job per line, # comments "
+           "OK):\n"
         << "  --manifest PATH\n"
         << "    1 field:   wav   (requires --out-dir -> OUT/<wav_stem>.json)\n"
         << "    2 fields:  wav<TAB>out.json\n"
-        << "  --out-dir PATH             required for 1-column manifest lines; also for --wav-list\n\n"
+        << "  --out-dir PATH             required for 1-column manifest lines; "
+           "also for --wav-list\n\n"
         << "Multi-file — one WAV path per line:\n"
-        << "  --wav-list PATH            requires --out-dir; writes OUT/<stem>.json per line\n\n"
+        << "  --wav-list PATH            requires --out-dir; writes "
+           "OUT/<stem>.json per line\n\n"
         << "Tuning:\n"
-        << "  --refresh-every N          re-cluster every N seconds of new audio (default 2.0)\n\n"
+        << "  --refresh-every N          re-cluster every N seconds of new "
+           "audio (default 2.0)\n\n"
         << "Other:\n"
-        << "  --continue-on-error            print error and continue; exit 1 if any failed\n";
+        << "  --continue-on-error            print error and continue; exit 1 "
+           "if any failed\n";
     return 2;
   }
   try {
-    const std::string onnx_path = get_arg(argc, argv, "--segmentation-onnx",
-                                          "artifacts/community1-segmentation.onnx");
-    const std::string embed_onnx = get_arg(argc, argv, "--embedding-onnx",
-                                           "artifacts/community1-embedding.onnx");
+    const std::string onnx_path =
+        get_arg(argc, argv, "--segmentation-onnx",
+                "artifacts/community1-segmentation.onnx");
+    const std::string embed_onnx = get_arg(
+        argc, argv, "--embedding-onnx", "artifacts/community1-embedding.onnx");
     const std::string manifest_path = get_arg(argc, argv, "--manifest");
     const std::string wav_list_path = get_arg(argc, argv, "--wav-list");
     const std::string wav_path = get_arg(argc, argv, "--wav");
@@ -260,17 +283,20 @@ int main(int argc, char** argv) {
     const bool continue_on_error = has_flag(argc, argv, "--continue-on-error");
 
     const std::string refresh_str = get_arg(argc, argv, "--refresh-every");
-    const double refresh_every_sec = refresh_str.empty() ? 2.0 : std::stod(refresh_str);
+    const double refresh_every_sec =
+        refresh_str.empty() ? 2.0 : std::stod(refresh_str);
 
     std::vector<DiarJob> jobs;
     if (!manifest_path.empty()) {
       if (!wav_list_path.empty() || !wav_path.empty()) {
-        throw std::runtime_error("use only one of --manifest, --wav-list, or --wav");
+        throw std::runtime_error(
+            "use only one of --manifest, --wav-list, or --wav");
       }
       jobs = load_manifest_jobs(manifest_path, out_dir);
     } else if (!wav_list_path.empty()) {
       if (!wav_path.empty()) {
-        throw std::runtime_error("use only one of --manifest, --wav-list, or --wav");
+        throw std::runtime_error(
+            "use only one of --manifest, --wav-list, or --wav");
       }
       if (out_dir.empty()) {
         throw std::runtime_error("--wav-list requires --out-dir");
@@ -282,7 +308,8 @@ int main(int argc, char** argv) {
         throw std::runtime_error("missing --wav (see --help)");
       }
       if (!out_dir.empty()) {
-        throw std::runtime_error("--out-dir is only for --manifest or --wav-list batch mode");
+        throw std::runtime_error(
+            "--out-dir is only for --manifest or --wav-list batch mode");
       }
       jobs.push_back({wav_path, out_path});
     }

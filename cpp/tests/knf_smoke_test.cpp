@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-// Minimal link/run check: kaldi-native-fbank + kissfft produce at least one fbank frame.
+// Minimal link/run check: kaldi-native-fbank + kissfft produce at least one
+// fbank frame.
 
 #include <cstdint>
 #include <cstdlib>
@@ -14,8 +15,10 @@ int main() {
   opts.frame_opts.dither = 0.0f;
   knf::OnlineFbank fbank(opts);
 
-  std::vector<float> wav(static_cast<std::size_t>(opts.frame_opts.samp_freq / 10), 0.f);
-  fbank.AcceptWaveform(opts.frame_opts.samp_freq, wav.data(), static_cast<int32_t>(wav.size()));
+  std::vector<float> wav(
+      static_cast<std::size_t>(opts.frame_opts.samp_freq / 10), 0.f);
+  fbank.AcceptWaveform(opts.frame_opts.samp_freq, wav.data(),
+                       static_cast<int32_t>(wav.size()));
   fbank.InputFinished();
 
   if (fbank.NumFramesReady() < 1) {
@@ -32,6 +35,7 @@ int main() {
     return 1;
   }
 
-  std::cout << "knf_smoke_test OK frames=" << fbank.NumFramesReady() << " dim=" << fbank.Dim() << "\n";
+  std::cout << "knf_smoke_test OK frames=" << fbank.NumFramesReady()
+            << " dim=" << fbank.Dim() << "\n";
   return 0;
 }

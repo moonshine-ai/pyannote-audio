@@ -32,7 +32,8 @@ static int json_int_field(const std::string& json, const char* key) {
   std::regex re(pat);
   std::smatch m;
   if (!std::regex_search(json, m, re)) {
-    throw std::runtime_error(std::string("JSON parse: missing int field \"") + key + "\"");
+    throw std::runtime_error(std::string("JSON parse: missing int field \"") +
+                             key + "\"");
   }
   return std::stoi(m[1].str());
 }
@@ -42,12 +43,14 @@ static bool json_bool_field(const std::string& json, const char* key) {
   std::regex re(pat);
   std::smatch m;
   if (!std::regex_search(json, m, re)) {
-    throw std::runtime_error(std::string("JSON parse: missing bool field \"") + key + "\"");
+    throw std::runtime_error(std::string("JSON parse: missing bool field \"") +
+                             key + "\"");
   }
   return m[1].str() == "true";
 }
 
-static float max_abs_diff(const std::vector<float>& a, const std::vector<float>& b) {
+static float max_abs_diff(const std::vector<float>& a,
+                          const std::vector<float>& b) {
   if (a.size() != b.size()) {
     throw std::runtime_error("size mismatch in max_abs_diff");
   }
@@ -60,18 +63,23 @@ static float max_abs_diff(const std::vector<float>& a, const std::vector<float>&
 
 int main(int argc, char** argv) {
   if (argc != 3) {
-    std::cerr << "Usage: segmentation_golden_test <community1-segmentation.onnx> <golden_utterance_dir>\n";
-    std::cerr << "  golden_utterance_dir must contain segmentations.npz and first_chunk_waveform.npz\n";
-    std::cerr << "  (re-run cpp/scripts/dump_diarization_golden.py if first_chunk_waveform.npz is missing)\n";
+    std::cerr << "Usage: segmentation_golden_test "
+                 "<community1-segmentation.onnx> <golden_utterance_dir>\n";
+    std::cerr << "  golden_utterance_dir must contain segmentations.npz and "
+                 "first_chunk_waveform.npz\n";
+    std::cerr << "  (re-run cpp/scripts/dump_diarization_golden.py if "
+                 "first_chunk_waveform.npz is missing)\n";
     return 2;
   }
   const std::string onnx_path = argv[1];
   const std::string golden_dir = argv[2];
-  if (onnx_path.size() < 5 || onnx_path.substr(onnx_path.size() - 5) != ".onnx") {
+  if (onnx_path.size() < 5 ||
+      onnx_path.substr(onnx_path.size() - 5) != ".onnx") {
     std::cerr << "Expected .onnx path\n";
     return 2;
   }
-  const std::string json_path = onnx_path.substr(0, onnx_path.size() - 5) + ".json";
+  const std::string json_path =
+      onnx_path.substr(0, onnx_path.size() - 5) + ".json";
 
   const std::string seg_npz = golden_dir + "/segmentations.npz";
   const std::string wav_npz = golden_dir + "/first_chunk_waveform.npz";
@@ -79,11 +87,14 @@ int main(int argc, char** argv) {
   const std::string json = read_text_file(json_path);
   const int chunk_num_samples = json_int_field(json, "chunk_num_samples");
   const int num_channels = json_int_field(json, "num_channels");
-  (void)json_bool_field(json, "export_includes_powerset_to_multilabel");  // sanity: exported graph
+  (void)json_bool_field(
+      json,
+      "export_includes_powerset_to_multilabel");  // sanity: exported graph
 
   cnpy::npz_t w_npz = cnpy::npz_load(wav_npz);
   if (!w_npz.count("waveforms")) {
-    throw std::runtime_error("first_chunk_waveform.npz missing 'waveforms' — re-run golden dump");
+    throw std::runtime_error(
+        "first_chunk_waveform.npz missing 'waveforms' — re-run golden dump");
   }
   const cnpy::NpyArray& wav_arr = w_npz["waveforms"];
   const float* wav_data = nullptr;
@@ -96,7 +107,8 @@ int main(int argc, char** argv) {
       for (size_t i = 0; i < wav_arr.shape.size(); ++i) {
         oss << (i ? ", " : "") << wav_arr.shape[i];
       }
-      oss << "] expected [1, " << num_channels << ", " << chunk_num_samples << "]";
+      oss << "] expected [1, " << num_channels << ", " << chunk_num_samples
+          << "]";
       throw std::runtime_error(oss.str());
     }
     wav_data = wav_arr.data<float>();
@@ -115,7 +127,8 @@ int main(int argc, char** argv) {
     wav_data = wav_arr.data<float>();
   } else {
     throw std::runtime_error(
-        "waveforms must be rank-3 (batch, channel, samples) or rank-2 (channel, samples)");
+        "waveforms must be rank-3 (batch, channel, samples) or rank-2 "
+        "(channel, samples)");
   }
 
   cnpy::npz_t seg_npz_m = cnpy::npz_load(seg_npz);
@@ -141,24 +154,18 @@ int main(int argc, char** argv) {
   Ort::AllocatedStringPtr in_name = session.GetInputNameAllocated(0, alloc);
   Ort::AllocatedStringPtr out_name = session.GetOutputNameAllocated(0, alloc);
 
-  Ort::MemoryInfo mem = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+  Ort::MemoryInfo mem =
+      Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
   const std::array<int64_t, 3> in_shape{1, num_channels, chunk_num_samples};
   Ort::Value in_tensor = Ort::Value::CreateTensor<float>(
-      mem,
-      const_cast<float*>(wav_data),
+      mem, const_cast<float*>(wav_data),
       static_cast<size_t>(1 * num_channels * chunk_num_samples),
-      in_shape.data(),
-      in_shape.size());
+      in_shape.data(), in_shape.size());
 
   const char* in_names[] = {in_name.get()};
   const char* out_names[] = {out_name.get()};
-  auto outs = session.Run(
-      Ort::RunOptions{nullptr},
-      in_names,
-      &in_tensor,
-      1,
-      out_names,
-      1);
+  auto outs = session.Run(Ort::RunOptions{nullptr}, in_names, &in_tensor, 1,
+                          out_names, 1);
 
   float* out_ptr = outs[0].GetTensorMutableData<float>();
   auto out_info = outs[0].GetTensorTypeAndShapeInfo();
@@ -192,7 +199,8 @@ int main(int argc, char** argv) {
 
   std::cout << "max_abs_diff(first_chunk) = " << mad << "\n";
   if (!pass) {
-    std::cerr << "FAIL: elementwise allclose(rtol=" << rtol << ", atol=" << atol << ") did not hold\n";
+    std::cerr << "FAIL: elementwise allclose(rtol=" << rtol << ", atol=" << atol
+              << ") did not hold\n";
     return 1;
   }
   std::cout << "PASS segmentation first chunk (ONNX Runtime vs golden NPZ)\n";

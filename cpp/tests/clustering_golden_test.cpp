@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Compare C++ VBx clustering to Python golden ``clustering.npz`` (approximate).
 
-#include <cmath>
-#include <cstring>
-#include <cstdlib>
-#include <iostream>
 #include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -14,28 +14,34 @@
 #include "cnpy.h"
 #include "plda_vbx.h"
 
-static float max_abs_diff_int8(const std::vector<std::int8_t>& a, const std::int8_t* b, size_t n) {
+static float max_abs_diff_int8(const std::vector<std::int8_t>& a,
+                               const std::int8_t* b, size_t n) {
   float m = 0.f;
   for (size_t i = 0; i < n; ++i) {
-    m = std::max(m, std::abs(static_cast<float>(a[i]) - static_cast<float>(b[i])));
+    m = std::max(m,
+                 std::abs(static_cast<float>(a[i]) - static_cast<float>(b[i])));
   }
   return m;
 }
 
 int main(int argc, char** argv) {
   if (argc == 2 && std::string(argv[1]) == "--help") {
-    std::cerr << "Usage: clustering_golden_test <golden_utterance_dir> <xvec_transform.npz> <plda.npz>\n";
-    std::cerr << "Env: SKIP_CLUSTERING_GOLDEN=1 to skip (VBx numerics still being aligned with SciPy).\n";
+    std::cerr << "Usage: clustering_golden_test <golden_utterance_dir> "
+                 "<xvec_transform.npz> <plda.npz>\n";
+    std::cerr << "Env: SKIP_CLUSTERING_GOLDEN=1 to skip (VBx numerics still "
+                 "being aligned with SciPy).\n";
     return 0;
   }
   if (const char* sk = std::getenv("SKIP_CLUSTERING_GOLDEN")) {
     if (sk[0] == '1') {
-      std::cout << "SKIP_CLUSTERING_GOLDEN=1 — skipping VBx golden comparison.\n";
+      std::cout
+          << "SKIP_CLUSTERING_GOLDEN=1 — skipping VBx golden comparison.\n";
       return 0;
     }
   }
   if (argc != 4) {
-    std::cerr << "Usage: clustering_golden_test <golden_utterance_dir> <xvec_transform.npz> <plda.npz>\n";
+    std::cerr << "Usage: clustering_golden_test <golden_utterance_dir> "
+                 "<xvec_transform.npz> <plda.npz>\n";
     return 2;
   }
   const std::string dir = argv[1];
@@ -48,7 +54,8 @@ int main(int argc, char** argv) {
   cnpy::npz_t emb_npz = cnpy::npz_load(emb_path);
   cnpy::npz_t bin_npz = cnpy::npz_load(bin_path);
   cnpy::npz_t clu_npz = cnpy::npz_load(clu_path);
-  if (!emb_npz.count("embeddings") || !bin_npz.count("data") || !clu_npz.count("hard_clusters")) {
+  if (!emb_npz.count("embeddings") || !bin_npz.count("data") ||
+      !clu_npz.count("hard_clusters")) {
     throw std::runtime_error("missing keys in golden npz");
   }
   const cnpy::NpyArray& emb = emb_npz["embeddings"];
@@ -80,7 +87,8 @@ int main(int argc, char** argv) {
   pr.num_clusters = -1;
 
   std::vector<std::int8_t> hard;
-  cppannote::clustering_vbx::vbx_clustering_hard(plda, pr, C, F, S, dim, emb_f.data(), bin_f.data(), hard);
+  cppannote::clustering_vbx::vbx_clustering_hard(
+      plda, pr, C, F, S, dim, emb_f.data(), bin_f.data(), hard);
 
   const std::int8_t* gptr = gold.data<std::int8_t>();
   const size_t n = hard.size();
@@ -98,9 +106,11 @@ int main(int argc, char** argv) {
     return c;
   }();
   const float frac = static_cast<float>(mism) / static_cast<float>(n);
-  std::cout << "hard_clusters max_abs_diff(int8)=" << mad << " mismatch_frac=" << frac << "\n";
+  std::cout << "hard_clusters max_abs_diff(int8)=" << mad
+            << " mismatch_frac=" << frac << "\n";
   if (frac > 0.35f) {
-    std::cerr << "FAIL: mismatch_frac too high (expected rough parity with Python)\n";
+    std::cerr
+        << "FAIL: mismatch_frac too high (expected rough parity with Python)\n";
     return 1;
   }
   return 0;

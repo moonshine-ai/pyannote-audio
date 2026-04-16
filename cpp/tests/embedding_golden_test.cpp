@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
-// Compare ONNX Runtime embedding output to Python golden (Torch ``embeddings.npz``).
-//  * Default: chunk 0 / speaker 0 vs ``embedding_chunk0_spk0_ort.npz`` (ORT inputs from dump).
-//  * ``--all``: recompute ORT embeddings for every chunk/speaker from WAV + golden
-//    ``binarized_segmentations.npz`` (same recipe as ``CppAnnote::diarize``) vs full ``embeddings.npz``.
+// Compare ONNX Runtime embedding output to Python golden (Torch
+// ``embeddings.npz``).
+//  * Default: chunk 0 / speaker 0 vs ``embedding_chunk0_spk0_ort.npz`` (ORT
+//  inputs from dump).
+//  * ``--all``: recompute ORT embeddings for every chunk/speaker from WAV +
+//  golden
+//    ``binarized_segmentations.npz`` (same recipe as ``CppAnnote::diarize``) vs
+//    full ``embeddings.npz``.
 
 #include <onnxruntime_cxx_api.h>
 
@@ -40,7 +44,8 @@ static int json_int_field(const std::string& json, const char* key) {
   std::regex re(pat);
   std::smatch m;
   if (!std::regex_search(json, m, re)) {
-    throw std::runtime_error(std::string("JSON parse: missing int field \"") + key + "\"");
+    throw std::runtime_error(std::string("JSON parse: missing int field \"") +
+                             key + "\"");
   }
   return std::stoi(m[1].str());
 }
@@ -55,7 +60,8 @@ static double json_double_req(const std::string& json, const char* key) {
   return std::stod(m[1].str());
 }
 
-static bool try_regex_double(const std::string& json, const std::string& key_esc, double& out) {
+static bool try_regex_double(const std::string& json,
+                             const std::string& key_esc, double& out) {
   const std::string pat = "\"" + key_esc + "\"\\s*:\\s*([-+0-9.eE]+)";
   std::regex re(pat);
   std::smatch m;
@@ -103,7 +109,8 @@ static bool row_all_nan(const float* p, int dim) {
   return true;
 }
 
-static bool allclose_row(const float* a, const float* b, int dim, float rtol, float atol) {
+static bool allclose_row(const float* a, const float* b, int dim, float rtol,
+                         float atol) {
   for (int i = 0; i < dim; ++i) {
     if (!(std::abs(a[i] - b[i]) <= atol + rtol * std::abs(b[i]))) {
       return false;
@@ -112,17 +119,21 @@ static bool allclose_row(const float* a, const float* b, int dim, float rtol, fl
   return true;
 }
 
-static int run_chunk0(const std::string& onnx_path, const std::string& golden_dir) {
-  const std::string json_path = onnx_path.substr(0, onnx_path.size() - 5) + ".json";
+static int run_chunk0(const std::string& onnx_path,
+                      const std::string& golden_dir) {
+  const std::string json_path =
+      onnx_path.substr(0, onnx_path.size() - 5) + ".json";
   const std::string npz_path = golden_dir + "/embedding_chunk0_spk0_ort.npz";
 
   const std::string json = read_text_file(json_path);
   const int embedding_dim = json_int_field(json, "embedding_dim");
 
   cnpy::npz_t npz = cnpy::npz_load(npz_path);
-  if (!npz.count("fbank") || !npz.count("weights") || !npz.count("expected_embedding")) {
+  if (!npz.count("fbank") || !npz.count("weights") ||
+      !npz.count("expected_embedding")) {
     throw std::runtime_error(
-        "missing keys in embedding_chunk0_spk0_ort.npz — re-run cpp/scripts/dump_diarization_golden.py");
+        "missing keys in embedding_chunk0_spk0_ort.npz — re-run "
+        "cpp/scripts/dump_diarization_golden.py");
   }
   const cnpy::NpyArray& fb = npz["fbank"];
   const cnpy::NpyArray& wt = npz["weights"];
@@ -132,7 +143,8 @@ static int run_chunk0(const std::string& onnx_path, const std::string& golden_di
     throw std::runtime_error("unexpected tensor ranks in golden npz");
   }
   if (static_cast<int>(exp.shape[0]) != embedding_dim) {
-    throw std::runtime_error("expected_embedding dim does not match embedding.json");
+    throw std::runtime_error(
+        "expected_embedding dim does not match embedding.json");
   }
 
   Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "embedding_golden_test");
@@ -144,7 +156,8 @@ static int run_chunk0(const std::string& onnx_path, const std::string& golden_di
   Ort::AllocatedStringPtr in1 = session.GetInputNameAllocated(1, alloc);
   Ort::AllocatedStringPtr out0 = session.GetOutputNameAllocated(0, alloc);
 
-  Ort::MemoryInfo mem = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+  Ort::MemoryInfo mem =
+      Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
 
   const float* fbank_ptr = fb.data<float>();
   const float* weights_ptr = wt.data<float>();
@@ -159,16 +172,10 @@ static int run_chunk0(const std::string& onnx_path, const std::string& golden_di
   };
 
   Ort::Value fbank_tensor = Ort::Value::CreateTensor<float>(
-      mem,
-      const_cast<float*>(fbank_ptr),
-      fb.num_vals,
-      fbank_shape.data(),
+      mem, const_cast<float*>(fbank_ptr), fb.num_vals, fbank_shape.data(),
       fbank_shape.size());
   Ort::Value weights_tensor = Ort::Value::CreateTensor<float>(
-      mem,
-      const_cast<float*>(weights_ptr),
-      wt.num_vals,
-      weights_shape.data(),
+      mem, const_cast<float*>(weights_ptr), wt.num_vals, weights_shape.data(),
       weights_shape.size());
 
   const char* in_names[] = {in0.get(), in1.get()};
@@ -181,13 +188,8 @@ static int run_chunk0(const std::string& onnx_path, const std::string& golden_di
     inputs[1] = std::move(fbank_tensor);
   }
   const char* out_names[] = {out0.get()};
-  auto outs = session.Run(
-      Ort::RunOptions{nullptr},
-      in_names,
-      inputs,
-      2,
-      out_names,
-      1);
+  auto outs =
+      session.Run(Ort::RunOptions{nullptr}, in_names, inputs, 2, out_names, 1);
 
   float* out_ptr = outs[0].GetTensorMutableData<float>();
   auto out_info = outs[0].GetTensorTypeAndShapeInfo();
@@ -218,7 +220,8 @@ static int run_chunk0(const std::string& onnx_path, const std::string& golden_di
 
   std::cout << "max_abs_diff(embedding) = " << mad << "\n";
   if (!pass) {
-    std::cerr << "FAIL: embedding allclose(rtol=" << rtol << ", atol=" << atol << ")\n";
+    std::cerr << "FAIL: embedding allclose(rtol=" << rtol << ", atol=" << atol
+              << ")\n";
     return 1;
   }
   std::cout << "PASS embedding chunk0 spk0 (ONNX Runtime vs golden NPZ)\n";
@@ -233,25 +236,34 @@ static std::string parent_dir(const std::string& p) {
   return p.substr(0, pos);
 }
 
-static int run_all_chunks(
-    const std::string& emb_onnx,
-    const std::string& golden_dir,
-    const std::string& wav_path,
-    const std::string& seg_onnx_path) {
-  const std::string emb_json_path = emb_onnx.substr(0, emb_onnx.size() - 5) + ".json";
-  const std::string seg_json_path = seg_onnx_path.substr(0, seg_onnx_path.size() - 5) + ".json";
+static int run_all_chunks(const std::string& emb_onnx,
+                          const std::string& golden_dir,
+                          const std::string& wav_path,
+                          const std::string& seg_onnx_path) {
+  const std::string emb_json_path =
+      emb_onnx.substr(0, emb_onnx.size() - 5) + ".json";
+  const std::string seg_json_path =
+      seg_onnx_path.substr(0, seg_onnx_path.size() - 5) + ".json";
   const std::string emb_json = read_text_file(emb_json_path);
   const std::string seg_json = read_text_file(seg_json_path);
 
-  const int embed_sr = static_cast<int>(json_double_req(emb_json, "sample_rate"));
-  const int embed_mel = static_cast<int>(json_double_req(emb_json, "num_mel_bins"));
-  const float embed_fl_ms = static_cast<float>(json_double_req(emb_json, "frame_length_ms"));
-  const float embed_fs_ms = static_cast<float>(json_double_req(emb_json, "frame_shift_ms"));
-  const int embed_dim = static_cast<int>(json_double_req(emb_json, "embedding_dim"));
-  const bool fbank_first = cppannote::embedding_ort::embedding_json_inputs_fbank_first(emb_json);
+  const int embed_sr =
+      static_cast<int>(json_double_req(emb_json, "sample_rate"));
+  const int embed_mel =
+      static_cast<int>(json_double_req(emb_json, "num_mel_bins"));
+  const float embed_fl_ms =
+      static_cast<float>(json_double_req(emb_json, "frame_length_ms"));
+  const float embed_fs_ms =
+      static_cast<float>(json_double_req(emb_json, "frame_shift_ms"));
+  const int embed_dim =
+      static_cast<int>(json_double_req(emb_json, "embedding_dim"));
+  const bool fbank_first =
+      cppannote::embedding_ort::embedding_json_inputs_fbank_first(emb_json);
 
-  const int sr_model = static_cast<int>(json_double_req(seg_json, "sample_rate"));
-  const int chunk_num_samples = static_cast<int>(json_double_req(seg_json, "chunk_num_samples"));
+  const int sr_model =
+      static_cast<int>(json_double_req(seg_json, "sample_rate"));
+  const int chunk_num_samples =
+      static_cast<int>(json_double_req(seg_json, "chunk_num_samples"));
   double chunk_step_sec = 0.1 * json_double_req(seg_json, "chunk_duration_sec");
   {
     double step_override = chunk_step_sec;
@@ -262,7 +274,8 @@ static int run_all_chunks(
   const double chunk_dur_sec = json_double_req(seg_json, "chunk_duration_sec");
 
   bool embedding_exclude_overlap = false;
-  const std::string snap_path = parent_dir(golden_dir) + "/pipeline_snapshot.json";
+  const std::string snap_path =
+      parent_dir(golden_dir) + "/pipeline_snapshot.json";
   try {
     const std::string snap = read_text_file(snap_path);
     try_embedding_exclude_overlap(snap, embedding_exclude_overlap);
@@ -271,9 +284,11 @@ static int run_all_chunks(
   }
 
   cnpy::npz_t gold_npz = cnpy::npz_load(golden_dir + "/embeddings.npz");
-  cnpy::npz_t bin_npz = cnpy::npz_load(golden_dir + "/binarized_segmentations.npz");
+  cnpy::npz_t bin_npz =
+      cnpy::npz_load(golden_dir + "/binarized_segmentations.npz");
   if (!gold_npz.count("embeddings") || !bin_npz.count("data")) {
-    throw std::runtime_error("embeddings.npz / binarized_segmentations.npz missing keys");
+    throw std::runtime_error(
+        "embeddings.npz / binarized_segmentations.npz missing keys");
   }
   const cnpy::NpyArray& gold_arr = gold_npz["embeddings"];
   const cnpy::NpyArray& bin_arr = bin_npz["data"];
@@ -287,17 +302,22 @@ static int run_all_chunks(
   const int F = static_cast<int>(bin_arr.shape[1]);
   const int Sb = static_cast<int>(bin_arr.shape[2]);
   if (Cb != C || Sb != S || dim != embed_dim) {
-    throw std::runtime_error("embeddings / binarized / embedding.json dim mismatch");
+    throw std::runtime_error(
+        "embeddings / binarized / embedding.json dim mismatch");
   }
   const float* gold = gold_arr.data<float>();
-  std::vector<float> binarized(bin_arr.data<float>(), bin_arr.data<float>() + bin_arr.num_vals);
+  std::vector<float> binarized(bin_arr.data<float>(),
+                               bin_arr.data<float>() + bin_arr.num_vals);
 
   int wav_sr_in = 0;
-  std::vector<float> audio_in = wav_pcm::load_wav_pcm16_mono_float32(wav_path, wav_sr_in);
-  std::vector<float> audio = wav_pcm::linear_resample(audio_in, wav_sr_in, sr_model);
+  std::vector<float> audio_in =
+      wav_pcm::load_wav_pcm16_mono_float32(wav_path, wav_sr_in);
+  std::vector<float> audio =
+      wav_pcm::linear_resample(audio_in, wav_sr_in, sr_model);
   const int64_t num_samples = static_cast<int64_t>(audio.size());
 
-  const int step_samples = static_cast<int>(std::lrint(chunk_step_sec * static_cast<double>(sr_model)));
+  const int step_samples = static_cast<int>(
+      std::lrint(chunk_step_sec * static_cast<double>(sr_model)));
   if (step_samples <= 0 || chunk_num_samples <= 0) {
     throw std::runtime_error("bad chunk/step samples from segmentation json");
   }
@@ -305,12 +325,13 @@ static int run_all_chunks(
   if (num_samples >= chunk_num_samples) {
     num_chunks = (num_samples - chunk_num_samples) / step_samples + 1;
   }
-  const bool has_last =
-      (num_samples < chunk_num_samples) || ((num_samples - chunk_num_samples) % step_samples > 0);
+  const bool has_last = (num_samples < chunk_num_samples) ||
+                        ((num_samples - chunk_num_samples) % step_samples > 0);
   const int64_t total_chunks = num_chunks + (has_last ? 1 : 0);
   if (total_chunks != static_cast<int64_t>(C)) {
     std::ostringstream oss;
-    oss << "WAV yields total_chunks=" << total_chunks << " but golden embeddings have C=" << C
+    oss << "WAV yields total_chunks=" << total_chunks
+        << " but golden embeddings have C=" << C
         << " (use the same WAV as the golden dump)";
     throw std::runtime_error(oss.str());
   }
@@ -318,29 +339,26 @@ static int run_all_chunks(
   Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "embedding_golden_test_all");
   Ort::SessionOptions session_options;
   Ort::Session session(env, emb_onnx.c_str(), session_options);
-  Ort::MemoryInfo mem = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
+  Ort::MemoryInfo mem =
+      Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
   Ort::AllocatorWithDefaultOptions alloc;
 
-  const int min_num_samples = cppannote::embedding_ort::discover_min_num_samples_embedding(
-      session,
-      mem,
-      alloc,
-      fbank_first,
-      embed_sr,
-      embed_mel,
-      embed_fl_ms,
-      embed_fs_ms,
-      embed_dim);
+  const int min_num_samples =
+      cppannote::embedding_ort::discover_min_num_samples_embedding(
+          session, mem, alloc, fbank_first, embed_sr, embed_mel, embed_fl_ms,
+          embed_fs_ms, embed_dim);
   int min_num_frames = cppannote::embedding_ort::fbank_num_frames_for_samples(
       embed_sr, embed_mel, embed_fl_ms, embed_fs_ms, min_num_samples);
   if (min_num_frames < 1) {
     min_num_frames = 1;
   }
 
-  std::cerr << "[EMBEDDING_FULL] min_num_samples=" << min_num_samples << " min_num_frames=" << min_num_frames
-            << " F=" << F << " chunk_num_samples(seg_json)=" << chunk_num_samples << " embed_sr=" << embed_sr
-            << " sr_model=" << sr_model << " embedding_exclude_overlap=" << (embedding_exclude_overlap ? 1 : 0)
-            << "\n";
+  std::cerr << "[EMBEDDING_FULL] min_num_samples=" << min_num_samples
+            << " min_num_frames=" << min_num_frames << " F=" << F
+            << " chunk_num_samples(seg_json)=" << chunk_num_samples
+            << " embed_sr=" << embed_sr << " sr_model=" << sr_model
+            << " embedding_exclude_overlap="
+            << (embedding_exclude_overlap ? 1 : 0) << "\n";
 
   const size_t nslots = static_cast<size_t>(C) * static_cast<size_t>(S);
   std::vector<int> slot_n_keep(nslots, -1);
@@ -349,11 +367,13 @@ static int run_all_chunks(
   std::vector<float> slot_sum_clean(nslots, 0.f);
   std::vector<char> slot_prefer_clean(nslots, 0);
 
-  std::vector<float> ort_emb(static_cast<size_t>(C) * static_cast<size_t>(S) * static_cast<size_t>(dim),
-      std::numeric_limits<float>::quiet_NaN());
+  std::vector<float> ort_emb(static_cast<size_t>(C) * static_cast<size_t>(S) *
+                                 static_cast<size_t>(dim),
+                             std::numeric_limits<float>::quiet_NaN());
 
   for (int64_t ci = 0; ci < total_chunks; ++ci) {
-    const int64_t off = (ci < num_chunks) ? ci * step_samples : num_chunks * step_samples;
+    const int64_t off =
+        (ci < num_chunks) ? ci * step_samples : num_chunks * step_samples;
     std::vector<float> chunk_mono(static_cast<size_t>(chunk_num_samples));
     for (int i = 0; i < chunk_num_samples; ++i) {
       const int64_t si = off + i;
@@ -366,30 +386,27 @@ static int run_all_chunks(
     std::vector<float> chunk_for_fbank = chunk_mono;
     int wav_sr_use = sr_model;
     if (sr_model != embed_sr) {
-      chunk_for_fbank = wav_pcm::linear_resample(chunk_mono, sr_model, embed_sr);
+      chunk_for_fbank =
+          wav_pcm::linear_resample(chunk_mono, sr_model, embed_sr);
       wav_sr_use = embed_sr;
     }
     const int chunk_embed_samples = static_cast<int>(chunk_for_fbank.size());
-    const int min_nf_seg =
-        embedding_exclude_overlap
-            ? static_cast<int>(std::ceil(static_cast<double>(F) * static_cast<double>(min_num_samples) /
-                                         static_cast<double>(chunk_embed_samples)))
-            : -1;
+    const int min_nf_seg = embedding_exclude_overlap
+                               ? static_cast<int>(std::ceil(
+                                     static_cast<double>(F) *
+                                     static_cast<double>(min_num_samples) /
+                                     static_cast<double>(chunk_embed_samples)))
+                               : -1;
     int Tf = 0;
     int Mfb = 0;
     std::vector<float> fbank_all;
     cppannote::fbank::wespeaker_like_fbank(
-        static_cast<float>(wav_sr_use),
-        embed_mel,
-        embed_fl_ms,
-        embed_fs_ms,
-        chunk_for_fbank.data(),
-        static_cast<int>(chunk_for_fbank.size()),
-        fbank_all,
-        Tf,
-        Mfb);
+        static_cast<float>(wav_sr_use), embed_mel, embed_fl_ms, embed_fs_ms,
+        chunk_for_fbank.data(), static_cast<int>(chunk_for_fbank.size()),
+        fbank_all, Tf, Mfb);
     if (Tf < 1 || Mfb != embed_mel) {
-      throw std::runtime_error("embedding fbank: unexpected frames or mel dimension");
+      throw std::runtime_error(
+          "embedding fbank: unexpected frames or mel dimension");
     }
     for (int sp = 0; sp < S; ++sp) {
       std::vector<float> clean_col(static_cast<size_t>(F), 0.f);
@@ -397,17 +414,18 @@ static int run_all_chunks(
       for (int f = 0; f < F; ++f) {
         float rowsum = 0.f;
         for (int j = 0; j < S; ++j) {
-          rowsum += binarized[static_cast<size_t>((static_cast<size_t>(ci) * static_cast<size_t>(F) +
-                                                   static_cast<size_t>(f)) *
-                                                      static_cast<size_t>(S) +
-                                                  static_cast<size_t>(j))];
+          rowsum += binarized[static_cast<size_t>(
+              (static_cast<size_t>(ci) * static_cast<size_t>(F) +
+               static_cast<size_t>(f)) *
+                  static_cast<size_t>(S) +
+              static_cast<size_t>(j))];
         }
         const float overlap_ok = (rowsum < 2.f - 1e-5f) ? 1.f : 0.f;
-        const float v =
-            binarized[static_cast<size_t>((static_cast<size_t>(ci) * static_cast<size_t>(F) +
-                                           static_cast<size_t>(f)) *
-                                              static_cast<size_t>(S) +
-                                      static_cast<size_t>(sp))];
+        const float v = binarized[static_cast<size_t>(
+            (static_cast<size_t>(ci) * static_cast<size_t>(F) +
+             static_cast<size_t>(f)) *
+                static_cast<size_t>(S) +
+            static_cast<size_t>(sp))];
         full_col[static_cast<size_t>(f)] = v;
         clean_col[static_cast<size_t>(f)] = v * overlap_ok;
       }
@@ -417,7 +435,9 @@ static int run_all_chunks(
           sum_clean += 1.f;
         }
       }
-      const bool prefer_clean = (min_nf_seg < 0) ? true : (sum_clean > static_cast<float>(min_nf_seg));
+      const bool prefer_clean =
+          (min_nf_seg < 0) ? true
+                           : (sum_clean > static_cast<float>(min_nf_seg));
       const std::vector<float>& src = prefer_clean ? clean_col : full_col;
       int n_active_seg = 0;
       for (int f = 0; f < F; ++f) {
@@ -425,16 +445,19 @@ static int run_all_chunks(
           ++n_active_seg;
         }
       }
-      const size_t sidx = static_cast<size_t>(ci) * static_cast<size_t>(S) + static_cast<size_t>(sp);
+      const size_t sidx = static_cast<size_t>(ci) * static_cast<size_t>(S) +
+                          static_cast<size_t>(sp);
       slot_n_keep[sidx] = n_active_seg;
       slot_Tf[sidx] = Tf;
       slot_min_nf_seg[sidx] = min_nf_seg;
       slot_sum_clean[sidx] = sum_clean;
       slot_prefer_clean[sidx] = prefer_clean ? 1 : 0;
-      float* dst = &ort_emb[(static_cast<size_t>(ci) * static_cast<size_t>(S) + static_cast<size_t>(sp)) *
+      float* dst = &ort_emb[(static_cast<size_t>(ci) * static_cast<size_t>(S) +
+                             static_cast<size_t>(sp)) *
                             static_cast<size_t>(dim)];
       cppannote::embedding_ort::run_embedding_ort(
-          session, mem, alloc, fbank_first, fbank_all.data(), Tf, Mfb, src.data(), F, dst, dim);
+          session, mem, alloc, fbank_first, fbank_all.data(), Tf, Mfb,
+          src.data(), F, dst, dim);
     }
   }
 
@@ -454,12 +477,14 @@ static int run_all_chunks(
 
   for (int c = 0; c < C; ++c) {
     for (int s = 0; s < S; ++s) {
-      const float* gp = &gold[static_cast<size_t>((static_cast<size_t>(c) * static_cast<size_t>(S) +
-                                                    static_cast<size_t>(s)) *
-                                                   static_cast<size_t>(dim))];
-      const float* op = &ort_emb[static_cast<size_t>((static_cast<size_t>(c) * static_cast<size_t>(S) +
-                                                      static_cast<size_t>(s)) *
-                                                     static_cast<size_t>(dim))];
+      const float* gp = &gold[static_cast<size_t>(
+          (static_cast<size_t>(c) * static_cast<size_t>(S) +
+           static_cast<size_t>(s)) *
+          static_cast<size_t>(dim))];
+      const float* op = &ort_emb[static_cast<size_t>(
+          (static_cast<size_t>(c) * static_cast<size_t>(S) +
+           static_cast<size_t>(s)) *
+          static_cast<size_t>(dim))];
       const bool gf = row_all_finite(gp, dim);
       const bool of = row_all_finite(op, dim);
       const bool gn = row_all_nan(gp, dim);
@@ -497,18 +522,25 @@ static int run_all_chunks(
     }
   }
 
-  const double mean_mad = both_finite ? sum_mad / static_cast<double>(both_finite) : 0.0;
-  const double fail_frac =
-      both_finite ? static_cast<double>(slot_fail_allclose) / static_cast<double>(both_finite) : 0.0;
+  const double mean_mad =
+      both_finite ? sum_mad / static_cast<double>(both_finite) : 0.0;
+  const double fail_frac = both_finite
+                               ? static_cast<double>(slot_fail_allclose) /
+                                     static_cast<double>(both_finite)
+                               : 0.0;
 
-  std::cout << "embedding_full: C=" << C << " S=" << S << " dim=" << dim << "\n";
+  std::cout << "embedding_full: C=" << C << " S=" << S << " dim=" << dim
+            << "\n";
   std::cout << "  slots both_nan=" << both_nan << " both_finite=" << both_finite
-            << " gold_finite_ort_nan=" << gold_finite_ort_nan << " gold_nan_ort_finite=" << gold_nan_ort_finite
+            << " gold_finite_ort_nan=" << gold_finite_ort_nan
+            << " gold_nan_ort_finite=" << gold_nan_ort_finite
             << " other=" << other_mismatch << "\n";
   std::cout << "  mean_max_abs_diff_per_both_finite_slot=" << mean_mad << "\n";
-  std::cout << "  worst_both_finite (c,s)=(" << worst_c << "," << worst_s << ") max_abs=" << worst_slot_mad << "\n";
+  std::cout << "  worst_both_finite (c,s)=(" << worst_c << "," << worst_s
+            << ") max_abs=" << worst_slot_mad << "\n";
   std::cout << "  global_max_abs_diff=" << global_max << "\n";
-  std::cout << "  allclose_fail_slots=" << slot_fail_allclose << " fail_frac=" << fail_frac << "\n";
+  std::cout << "  allclose_fail_slots=" << slot_fail_allclose
+            << " fail_frac=" << fail_frac << "\n";
 
   std::map<int, int> deficit_hist;
   const char* csv_path = std::getenv("EMBEDDING_FULL_DUMP_CSV");
@@ -517,13 +549,16 @@ static int run_all_chunks(
   if (csv_path != nullptr && csv_path[0] != '\0') {
     csv_out.open(csv_path);
     if (!csv_out) {
-      throw std::runtime_error(std::string("cannot open EMBEDDING_FULL_DUMP_CSV: ") + csv_path);
+      throw std::runtime_error(
+          std::string("cannot open EMBEDDING_FULL_DUMP_CSV: ") + csv_path);
     }
-    csv_out << "c,s,n_active_seg,Tf,F,min_num_frames,min_nf_seg,sum_clean,prefer_clean,deficit\n";
+    csv_out << "c,s,n_active_seg,Tf,F,min_num_frames,min_nf_seg,sum_clean,"
+               "prefer_clean,deficit\n";
   }
   for (int c = 0; c < C; ++c) {
     for (int s = 0; s < S; ++s) {
-      const size_t sidx = static_cast<size_t>(c) * static_cast<size_t>(S) + static_cast<size_t>(s);
+      const size_t sidx = static_cast<size_t>(c) * static_cast<size_t>(S) +
+                          static_cast<size_t>(s);
       const float* gp = &gold[sidx * static_cast<size_t>(dim)];
       const float* op = &ort_emb[sidx * static_cast<size_t>(dim)];
       if (!row_all_finite(gp, dim)) {
@@ -534,47 +569,56 @@ static int run_all_chunks(
       }
       const int nk = slot_n_keep[sidx];
       const int deficit = min_num_frames - nk;
-      deficit_hist[deficit] += 1;  // nk = segmentation frames active in used mask
+      deficit_hist[deficit] +=
+          1;  // nk = segmentation frames active in used mask
       if (csv_out.is_open()) {
-        csv_out << c << "," << s << "," << nk << "," << slot_Tf[sidx] << "," << F << "," << min_num_frames << ","
-                << slot_min_nf_seg[sidx] << "," << slot_sum_clean[sidx] << ","
-                << static_cast<int>(slot_prefer_clean[sidx]) << "," << deficit << "\n";
+        csv_out << c << "," << s << "," << nk << "," << slot_Tf[sidx] << ","
+                << F << "," << min_num_frames << "," << slot_min_nf_seg[sidx]
+                << "," << slot_sum_clean[sidx] << ","
+                << static_cast<int>(slot_prefer_clean[sidx]) << "," << deficit
+                << "\n";
         ++csv_data_rows;
       }
     }
   }
   if (!deficit_hist.empty()) {
     for (const auto& pr : deficit_hist) {
-      std::cerr << "[EMBEDDING_NAN_MISMATCH] deficit=min_num_frames-n_active_seg=" << pr.first
-                << " count=" << pr.second << "\n";
+      std::cerr
+          << "[EMBEDDING_NAN_MISMATCH] deficit=min_num_frames-n_active_seg="
+          << pr.first << " count=" << pr.second << "\n";
     }
   }
   if (csv_out.is_open()) {
     csv_out.close();
     if (csv_data_rows > 0) {
-      std::cerr << "[EMBEDDING_FULL] wrote " << csv_data_rows << " nan-mismatch row(s) to " << csv_path << "\n";
+      std::cerr << "[EMBEDDING_FULL] wrote " << csv_data_rows
+                << " nan-mismatch row(s) to " << csv_path << "\n";
     }
   }
 
   const char* ff_env = std::getenv("EMBEDDING_FULL_MAX_FAIL_FRAC");
   const double max_fail_frac = ff_env ? std::stod(ff_env) : 0.10;
   const char* nan_env = std::getenv("EMBEDDING_FULL_MAX_OR_NAN_SLOTS");
-  const std::size_t max_ort_nan = nan_env ? static_cast<std::size_t>(std::stoll(nan_env)) : 200u;
+  const std::size_t max_ort_nan =
+      nan_env ? static_cast<std::size_t>(std::stoll(nan_env)) : 200u;
   if (gold_finite_ort_nan > max_ort_nan) {
-    std::cerr << "FAIL: gold_finite_ort_nan=" << gold_finite_ort_nan << " > EMBEDDING_FULL_MAX_OR_NAN_SLOTS="
-              << max_ort_nan << "\n";
+    std::cerr << "FAIL: gold_finite_ort_nan=" << gold_finite_ort_nan
+              << " > EMBEDDING_FULL_MAX_OR_NAN_SLOTS=" << max_ort_nan << "\n";
     return 1;
   }
   if (gold_nan_ort_finite > 0u) {
-    std::cerr << "FAIL: gold_nan_ort_finite=" << gold_nan_ort_finite << " (unexpected)\n";
+    std::cerr << "FAIL: gold_nan_ort_finite=" << gold_nan_ort_finite
+              << " (unexpected)\n";
     return 1;
   }
   if (other_mismatch > 0u) {
-    std::cerr << "FAIL: partial NaN / mixed rows not handled: " << other_mismatch << "\n";
+    std::cerr << "FAIL: partial NaN / mixed rows not handled: "
+              << other_mismatch << "\n";
     return 1;
   }
   if (fail_frac > max_fail_frac) {
-    std::cerr << "FAIL: allclose fail_frac " << fail_frac << " > " << max_fail_frac
+    std::cerr << "FAIL: allclose fail_frac " << fail_frac << " > "
+              << max_fail_frac
               << " (set EMBEDDING_FULL_MAX_FAIL_FRAC to relax)\n";
     return 1;
   }
@@ -585,17 +629,23 @@ static int run_all_chunks(
 int main(int argc, char** argv) {
   if (argc >= 2 && std::string(argv[1]) == "--help") {
     std::cerr << "Usage:\n"
-              << "  embedding_golden_test <community1-embedding.onnx> <golden_utterance_dir>\n"
+              << "  embedding_golden_test <community1-embedding.onnx> "
+                 "<golden_utterance_dir>\n"
               << "    chunk0/spk0 vs embedding_chunk0_spk0_ort.npz\n"
-              << "  embedding_golden_test <embedding.onnx> <golden_utterance_dir> --all <audio.wav> "
+              << "  embedding_golden_test <embedding.onnx> "
+                 "<golden_utterance_dir> --all <audio.wav> "
                  "<community1-segmentation.onnx>\n"
-              << "    ORT vs full embeddings.npz (same WAV as dump; optional pipeline_snapshot.json parent for "
+              << "    ORT vs full embeddings.npz (same WAV as dump; optional "
+                 "pipeline_snapshot.json parent for "
                  "embedding_exclude_overlap)\n"
               << "Env:\n"
-              << "  EMBEDDING_FULL_MAX_FAIL_FRAC (default 0.10) on mutually-finite slots vs allclose.\n"
-              << "  EMBEDDING_FULL_MAX_OR_NAN_SLOTS (default 200) max slots where golden is finite but ORT is "
+              << "  EMBEDDING_FULL_MAX_FAIL_FRAC (default 0.10) on "
+                 "mutually-finite slots vs allclose.\n"
+              << "  EMBEDDING_FULL_MAX_OR_NAN_SLOTS (default 200) max slots "
+                 "where golden is finite but ORT is "
                  "all-NaN; set 0 for strict NaN-mask parity.\n"
-              << "  EMBEDDING_FULL_DUMP_CSV=/path/rows.csv  gold-finite & ORT-NaN diagnostics per slot "
+              << "  EMBEDDING_FULL_DUMP_CSV=/path/rows.csv  gold-finite & "
+                 "ORT-NaN diagnostics per slot "
                  "(n_active_seg = used-mask frames > 0.5).\n";
     return 0;
   }
@@ -612,8 +662,10 @@ int main(int argc, char** argv) {
     }
   }
   if (argc != 3) {
-    std::cerr << "Usage: embedding_golden_test <community1-embedding.onnx> <golden_utterance_dir>\n";
-    std::cerr << "  requires embedding_chunk0_spk0_ort.npz (re-run dump_diarization_golden.py)\n";
+    std::cerr << "Usage: embedding_golden_test <community1-embedding.onnx> "
+                 "<golden_utterance_dir>\n";
+    std::cerr << "  requires embedding_chunk0_spk0_ort.npz (re-run "
+                 "dump_diarization_golden.py)\n";
     return 2;
   }
   try {

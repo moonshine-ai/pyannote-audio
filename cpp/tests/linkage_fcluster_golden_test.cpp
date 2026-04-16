@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-// Compare C++ ``pdist`` + centroid ``linkage`` + ``fcluster`` to SciPy reference in ``vbx_reference.npz``.
+// Compare C++ ``pdist`` + centroid ``linkage`` + ``fcluster`` to SciPy
+// reference in ``vbx_reference.npz``.
 
 #include <cmath>
 #include <cstdlib>
@@ -11,7 +12,8 @@
 #include "cnpy.h"
 #include "scipy_linkage.h"
 
-static double max_abs_diff(const std::vector<double>& a, const double* b, size_t n) {
+static double max_abs_diff(const std::vector<double>& a, const double* b,
+                           size_t n) {
   double m = 0.0;
   for (size_t i = 0; i < n; ++i) {
     m = std::max(m, std::abs(a[i] - b[i]));
@@ -25,21 +27,26 @@ int main(int argc, char** argv) {
     return 2;
   }
   cnpy::npz_t z = cnpy::npz_load(argv[1]);
-  if (!z.count("train_n") || !z.count("pdist_condensed") || !z.count("linkage_Z") || !z.count("ahc")) {
-    std::cerr << "NPZ missing train_n / pdist_condensed / linkage_Z / ahc (regenerate with write_vbx_golden_reference.py)\n";
+  if (!z.count("train_n") || !z.count("pdist_condensed") ||
+      !z.count("linkage_Z") || !z.count("ahc")) {
+    std::cerr << "NPZ missing train_n / pdist_condensed / linkage_Z / ahc "
+                 "(regenerate with write_vbx_golden_reference.py)\n";
     return 2;
   }
   const cnpy::NpyArray& tn = z["train_n"];
   const cnpy::NpyArray& pd = z["pdist_condensed"];
   const cnpy::NpyArray& lz = z["linkage_Z"];
   const cnpy::NpyArray& ah = z["ahc"];
-  if (tn.shape.size() != 2 || pd.shape.size() != 1 || lz.shape.size() != 1 || ah.shape.size() != 1) {
+  if (tn.shape.size() != 2 || pd.shape.size() != 1 || lz.shape.size() != 1 ||
+      ah.shape.size() != 1) {
     throw std::runtime_error("unexpected array ranks");
   }
   const int n = static_cast<int>(tn.shape[0]);
   const int d = static_cast<int>(tn.shape[1]);
   const size_t m = static_cast<size_t>(n * (n - 1) / 2);
-  if (pd.num_vals != m || lz.num_vals != static_cast<size_t>(4 * std::max(0, n - 1)) || ah.num_vals != static_cast<size_t>(n)) {
+  if (pd.num_vals != m ||
+      lz.num_vals != static_cast<size_t>(4 * std::max(0, n - 1)) ||
+      ah.num_vals != static_cast<size_t>(n)) {
     throw std::runtime_error("size mismatch");
   }
 
@@ -47,8 +54,10 @@ int main(int argc, char** argv) {
   const double* tnp = tn.data<double>();
   for (int i = 0; i < n; ++i) {
     for (int j = 0; j < d; ++j) {
-      xflat[static_cast<size_t>(i) * static_cast<size_t>(d) + static_cast<size_t>(j)] =
-          tnp[static_cast<size_t>(i) * static_cast<size_t>(d) + static_cast<size_t>(j)];
+      xflat[static_cast<size_t>(i) * static_cast<size_t>(d) +
+            static_cast<size_t>(j)] =
+          tnp[static_cast<size_t>(i) * static_cast<size_t>(d) +
+              static_cast<size_t>(j)];
     }
   }
   std::vector<double> pd_cpp;
@@ -77,7 +86,8 @@ int main(int argc, char** argv) {
       ++mism;
     }
   }
-  std::cout << "ahc mismatches=" << mism << " / " << n << " fcluster_threshold=" << fcluster_t << "\n";
+  std::cout << "ahc mismatches=" << mism << " / " << n
+            << " fcluster_threshold=" << fcluster_t << "\n";
 
   const double tol_pd = 1e-9;
   const double tol_z = 1e-9;

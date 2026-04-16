@@ -30,7 +30,7 @@ struct DiarizationResults {
 /// diarization sessions.  All heavy implementation details (ORT sessions,
 /// PLDA model, VBx clustering) are hidden behind the pimpl firewall.
 class CppAnnote {
-public:
+ public:
   /// Construct the diarization engine.  Both ONNX paths are required;
   /// all other parameters (receptive field, pipeline snapshot, PLDA weights,
   /// etc.) use compiled-in community-1 defaults.
@@ -44,6 +44,10 @@ public:
   CppAnnote(CppAnnote &&) noexcept;
   CppAnnote &operator=(CppAnnote &&) noexcept;
 
+  /// Diarize an entire buffer of mono PCM audio in one shot.
+  DiarizationResults diarize(const float *audio_data, uint64_t audio_length,
+                             int32_t sample_rate = 16000);
+
   /// Allocate a new streaming diarization session and return its handle.
   /// ``refresh_every_sec`` controls how often re-clustering runs.
   int32_t create_stream(double refresh_every_sec = 2.0);
@@ -54,7 +58,8 @@ public:
   /// Initialize a stream, clearing any buffered audio and cached results.
   void start_stream(int32_t stream_id);
 
-  /// Finalize the stream (forces a last clustering pass) and return diarization.
+  /// Finalize the stream (forces a last clustering pass) and return
+  /// diarization.
   DiarizationResults stop_stream(int32_t stream_id);
 
   /// Append PCM audio to a stream.  Resampling to the model rate is handled
@@ -66,15 +71,11 @@ public:
   /// without stopping the stream.
   DiarizationResults diarize_stream(int32_t stream_id);
 
-  /// Diarize an entire buffer of mono PCM audio in one shot.
-  DiarizationResults diarize(const float *audio_data, uint64_t audio_length,
-                             int32_t sample_rate = 16000);
-
-private:
+ private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
 };
 
-} // namespace cppannote
+}  // namespace cppannote
 
-#endif // CPP_ANNOTE_H_
+#endif  // CPP_ANNOTE_H_

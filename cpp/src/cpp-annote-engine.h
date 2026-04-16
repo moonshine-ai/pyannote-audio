@@ -7,16 +7,16 @@
 
 #include <onnxruntime_cxx_api.h>
 
-#include "clustering_vbx.h"
-#include "cpp-annote.h"
-#include "plda_vbx.h"
-
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "clustering_vbx.h"
+#include "cpp-annote.h"
+#include "plda_vbx.h"
 
 namespace cppannote {
 
@@ -39,12 +39,10 @@ struct DiarizationProfile {
                   "%sclustering_vbx:   %.3fs\n"
                   "%sreconstruct:      %.3fs\n"
                   "%stotal:            %.3fs\n",
-                  prefix, total_chunks, num_frames, num_classes,
-                  prefix, segmentation_ort_sec,
-                  prefix, embedding_ort_sec,
-                  prefix, clustering_vbx_sec,
-                  prefix, reconstruct_sec,
-                  prefix, total_sec);
+                  prefix, total_chunks, num_frames, num_classes, prefix,
+                  segmentation_ort_sec, prefix, embedding_ort_sec, prefix,
+                  clustering_vbx_sec, prefix, reconstruct_sec, prefix,
+                  total_sec);
     os << buf;
   }
 
@@ -59,39 +57,39 @@ struct DiarizationProfile {
 
 class CppAnnoteEngine {
  public:
-  explicit CppAnnoteEngine(
-      std::string segmentation_onnx_path,
-      std::string embedding_onnx_path);
+  explicit CppAnnoteEngine(std::string segmentation_onnx_path,
+                           std::string embedding_onnx_path);
 
   CppAnnoteEngine(const CppAnnoteEngine&) = delete;
   CppAnnoteEngine& operator=(const CppAnnoteEngine&) = delete;
   CppAnnoteEngine(CppAnnoteEngine&&) = delete;
   CppAnnoteEngine& operator=(CppAnnoteEngine&&) = delete;
 
-  static std::vector<float> extract_chunk_audio(
-      const float* audio, int64_t num_samples,
-      int64_t offset, int chunk_num_samples, int num_channels);
+  static std::vector<float> extract_chunk_audio(const float* audio,
+                                                int64_t num_samples,
+                                                int64_t offset,
+                                                int chunk_num_samples,
+                                                int num_channels);
 
   std::vector<float> run_segmentation_ort_single(const float* chunk_buf);
 
-  std::vector<float> run_embedding_ort_single(
-      const float* chunk_mono, const float* seg_binarized);
+  std::vector<float> run_embedding_ort_single(const float* chunk_mono,
+                                              const float* seg_binarized);
 
   std::vector<DiarizationTurn> cluster_and_decode(
-      const std::vector<float>& seg_out,
-      const std::vector<float>& emb,
-      int C, DiarizationProfile& profile);
+      const std::vector<float>& seg_out, const std::vector<float>& emb, int C,
+      DiarizationProfile& profile);
 
-int segmentation_model_sample_rate() const { return cfg_.sr_model; }
-int segmentation_num_channels() const { return cfg_.num_channels; }
-int segmentation_chunk_num_samples() const { return cfg_.chunk_num_samples; }
-double segmentation_chunk_step_sec() const { return cfg_.chunk_step_sec; }
-double segmentation_chunk_duration_sec() const { return cfg_.chunk_dur_sec; }
-int seg_frames_per_chunk() const { return seg_F_; }
-int seg_classes() const { return seg_K_; }
-int embedding_dimension() const { return embed_dim_; }
+  int segmentation_model_sample_rate() const { return cfg_.sr_model; }
+  int segmentation_num_channels() const { return cfg_.num_channels; }
+  int segmentation_chunk_num_samples() const { return cfg_.chunk_num_samples; }
+  double segmentation_chunk_step_sec() const { return cfg_.chunk_step_sec; }
+  double segmentation_chunk_duration_sec() const { return cfg_.chunk_dur_sec; }
+  int seg_frames_per_chunk() const { return seg_F_; }
+  int seg_classes() const { return seg_K_; }
+  int embedding_dimension() const { return embed_dim_; }
 
-const std::string& segmentation_onnx_path() const { return onnx_path_; }
+  const std::string& segmentation_onnx_path() const { return onnx_path_; }
 
  private:
   struct SegConfig {

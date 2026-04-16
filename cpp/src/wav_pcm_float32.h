@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-// Minimal RIFF WAVE reader: PCM 16-bit LE → float32 mono [-1, 1], plus linear resampling.
+// Minimal RIFF WAVE reader: PCM 16-bit LE → float32 mono [-1, 1], plus linear
+// resampling.
 
 #ifndef WAV_PCM_FLOAT32_H_
 #define WAV_PCM_FLOAT32_H_
@@ -34,16 +35,21 @@ inline std::vector<std::uint8_t> read_file_bytes(const std::string& path) {
 }
 
 inline std::uint32_t u32(const std::uint8_t* p) {
-  return static_cast<std::uint32_t>(p[0]) | (static_cast<std::uint32_t>(p[1]) << 8) |
-         (static_cast<std::uint32_t>(p[2]) << 16) | (static_cast<std::uint32_t>(p[3]) << 24);
+  return static_cast<std::uint32_t>(p[0]) |
+         (static_cast<std::uint32_t>(p[1]) << 8) |
+         (static_cast<std::uint32_t>(p[2]) << 16) |
+         (static_cast<std::uint32_t>(p[3]) << 24);
 }
 
 inline std::uint16_t u16(const std::uint8_t* p) {
-  return static_cast<std::uint16_t>(p[0]) | (static_cast<std::uint16_t>(p[1]) << 8);
+  return static_cast<std::uint16_t>(p[0]) |
+         (static_cast<std::uint16_t>(p[1]) << 8);
 }
 
-// PCM 16 LE mono or stereo (mean to mono) → float32 mono, sample_rate_out set from header.
-inline std::vector<float> load_wav_pcm16_mono_float32(const std::string& path, int& sample_rate_out) {
+// PCM 16 LE mono or stereo (mean to mono) → float32 mono, sample_rate_out set
+// from header.
+inline std::vector<float> load_wav_pcm16_mono_float32(const std::string& path,
+                                                      int& sample_rate_out) {
   const std::vector<std::uint8_t> raw = read_file_bytes(path);
   if (raw.size() < 44) {
     throw std::runtime_error("wav: file too small");
@@ -100,7 +106,8 @@ inline std::vector<float> load_wav_pcm16_mono_float32(const std::string& path, i
   for (size_t i = 0; i < num_frames; ++i) {
     float sum = 0.f;
     for (int ch = 0; ch < num_channels; ++ch) {
-      const size_t o = i * static_cast<size_t>(num_channels) * 2u + static_cast<size_t>(ch) * 2u;
+      const size_t o = i * static_cast<size_t>(num_channels) * 2u +
+                       static_cast<size_t>(ch) * 2u;
       const int16_t s = static_cast<int16_t>(u16(d + o));
       sum += static_cast<float>(s) / 32768.f;
     }
@@ -110,7 +117,8 @@ inline std::vector<float> load_wav_pcm16_mono_float32(const std::string& path, i
   return mono;
 }
 
-inline std::vector<float> linear_resample(const std::vector<float>& x, int sr_in, int sr_out) {
+inline std::vector<float> linear_resample(const std::vector<float>& x,
+                                          int sr_in, int sr_out) {
   if (sr_in == sr_out || x.empty()) {
     return x;
   }
@@ -119,15 +127,21 @@ inline std::vector<float> linear_resample(const std::vector<float>& x, int sr_in
   }
   const double ratio = static_cast<double>(sr_out) / static_cast<double>(sr_in);
   const size_t n_out = static_cast<size_t>(std::max<std::int64_t>(
-      1, static_cast<std::int64_t>(std::llround(static_cast<double>(x.size()) * ratio))));
+      1, static_cast<std::int64_t>(
+             std::llround(static_cast<double>(x.size()) * ratio))));
   std::vector<float> y(n_out);
   for (size_t j = 0; j < n_out; ++j) {
-    const double src_pos = (static_cast<double>(j) + 0.5) / static_cast<double>(n_out) * static_cast<double>(x.size()) - 0.5;
-    const double src_f = std::max(0., std::min(static_cast<double>(x.size() - 1), src_pos));
+    const double src_pos = (static_cast<double>(j) + 0.5) /
+                               static_cast<double>(n_out) *
+                               static_cast<double>(x.size()) -
+                           0.5;
+    const double src_f =
+        std::max(0., std::min(static_cast<double>(x.size() - 1), src_pos));
     const size_t i0 = static_cast<size_t>(std::floor(src_f));
     const size_t i1 = std::min(i0 + 1, x.size() - 1);
     const double t = src_f - static_cast<double>(i0);
-    y[j] = static_cast<float>((1. - t) * static_cast<double>(x[i0]) + t * static_cast<double>(x[i1]));
+    y[j] = static_cast<float>((1. - t) * static_cast<double>(x[i0]) +
+                              t * static_cast<double>(x[i1]));
   }
   return y;
 }
