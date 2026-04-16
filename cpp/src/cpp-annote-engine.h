@@ -2,7 +2,8 @@
 // Internal engine class for segmentation ORT + embedding ORT + VBx (PLDA).
 // Not part of the public API — use CppAnnote (cpp-annote.h) instead.
 
-#pragma once
+#ifndef CPP_ANNOTE_ENGINE_H_
+#define CPP_ANNOTE_ENGINE_H_
 
 #include <onnxruntime_cxx_api.h>
 
@@ -60,12 +61,7 @@ class CppAnnoteEngine {
  public:
   explicit CppAnnoteEngine(
       std::string segmentation_onnx_path,
-      std::string receptive_field_json_path,
-      std::string golden_speaker_bounds_json_path,
-      std::string pipeline_snapshot_json_path,
-      std::string embedding_onnx_path,
-      std::string xvec_transform_npz_path,
-      std::string plda_npz_path);
+      std::string embedding_onnx_path);
 
   CppAnnoteEngine(const CppAnnoteEngine&) = delete;
   CppAnnoteEngine& operator=(const CppAnnoteEngine&) = delete;
@@ -86,18 +82,16 @@ class CppAnnoteEngine {
       const std::vector<float>& emb,
       int C, DiarizationProfile& profile);
 
-  [[nodiscard]] int segmentation_model_sample_rate() const { return cfg_.sr_model; }
-  [[nodiscard]] int segmentation_num_channels() const { return cfg_.num_channels; }
-  [[nodiscard]] int segmentation_chunk_num_samples() const { return cfg_.chunk_num_samples; }
-  [[nodiscard]] double segmentation_chunk_step_sec() const { return cfg_.chunk_step_sec; }
-  [[nodiscard]] double segmentation_chunk_duration_sec() const { return cfg_.chunk_dur_sec; }
-  [[nodiscard]] int seg_frames_per_chunk() const { return seg_F_; }
-  [[nodiscard]] int seg_classes() const { return seg_K_; }
-  [[nodiscard]] int embedding_dimension() const { return embed_dim_; }
+int segmentation_model_sample_rate() const { return cfg_.sr_model; }
+int segmentation_num_channels() const { return cfg_.num_channels; }
+int segmentation_chunk_num_samples() const { return cfg_.chunk_num_samples; }
+double segmentation_chunk_step_sec() const { return cfg_.chunk_step_sec; }
+double segmentation_chunk_duration_sec() const { return cfg_.chunk_dur_sec; }
+int seg_frames_per_chunk() const { return seg_F_; }
+int seg_classes() const { return seg_K_; }
+int embedding_dimension() const { return embed_dim_; }
 
-  void set_golden_speaker_bounds(std::string golden_speaker_bounds_json_path);
-
-  [[nodiscard]] const std::string& segmentation_onnx_path() const { return onnx_path_; }
+const std::string& segmentation_onnx_path() const { return onnx_path_; }
 
  private:
   struct SegConfig {
@@ -110,7 +104,6 @@ class CppAnnoteEngine {
   };
 
   std::string onnx_path_;
-  std::string default_golden_bounds_body_;
   std::string golden_bounds_body_;
 
   SegConfig cfg_{};
@@ -146,3 +139,5 @@ class CppAnnoteEngine {
 };
 
 }  // namespace cppannote
+
+#endif  // CPP_ANNOTE_ENGINE_H_

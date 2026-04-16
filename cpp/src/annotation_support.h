@@ -6,7 +6,8 @@
 //   - pyannote/core/annotation.py  Annotation.support
 //   - pyannote/core/segment.py  Segment.__or__ (union), __xor__ (gap), __bool__
 
-#pragma once
+#ifndef ANNOTATION_SUPPORT_H_
+#define ANNOTATION_SUPPORT_H_
 
 #include <algorithm>
 #include <cmath>
@@ -99,3 +100,5 @@ inline std::vector<std::pair<int, Segment>> annotation_support(
 }
 
 }  // namespace cppannote
+
+#endif  // ANNOTATION_SUPPORT_H_

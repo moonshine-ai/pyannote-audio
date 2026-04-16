@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Minimal RIFF WAVE reader: PCM 16-bit LE → float32 mono [-1, 1], plus linear resampling.
 
-#pragma once
+#ifndef WAV_PCM_FLOAT32_H_
+#define WAV_PCM_FLOAT32_H_
 
 #include <algorithm>
 #include <cmath>
@@ -132,3 +133,5 @@ inline std::vector<float> linear_resample(const std::vector<float>& x, int sr_in
 }
 
 }  // namespace wav_pcm
+
+#endif  // WAV_PCM_FLOAT32_H_

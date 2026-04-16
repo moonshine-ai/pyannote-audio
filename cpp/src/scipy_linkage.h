@@ -2,7 +2,8 @@
 // SciPy-compatible helpers: condensed pdist (Euclidean), naive centroid linkage,
 // fcluster(..., criterion='distance').
 
-#pragma once
+#ifndef SCIPY_LINKAGE_H_
+#define SCIPY_LINKAGE_H_
 
 #include <cmath>
 #include <cstddef>
@@ -32,3 +33,5 @@ void fcluster_distance(const std::vector<double>& Z, int n, double cutoff, std::
 void remap_labels_contiguous(const std::vector<int>& labels_one_based, std::vector<int>& out);
 
 }  // namespace cppannote::scipy_linkage
+
+#endif  // SCIPY_LINKAGE_H_

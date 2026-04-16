@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // ``VBxClustering.filter_embeddings`` (same rules as ``clustering.py``).
 
-#pragma once
+#ifndef FILTER_TRAIN_H_
+#define FILTER_TRAIN_H_
 
 #include <Eigen/Dense>
 
@@ -25,3 +26,5 @@ void filter_embeddings_train(
     Eigen::MatrixXd& train);
 
 }  // namespace cppannote::filter_train
+
+#endif  // FILTER_TRAIN_H_

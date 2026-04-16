@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // PLDA transforms (``vbx_setup``) + ``VBx`` / ``cluster_vbx`` (``vbx.py``).
 
-#pragma once
+#ifndef PLDA_VBX_H_
+#define PLDA_VBX_H_
 
 #include <Eigen/Dense>
 
@@ -40,9 +41,9 @@ struct PldaModel {
       const double* psi,
       int n_psi,
       int lda_dim);
-  [[nodiscard]] Eigen::MatrixXd xvec_tf(const Eigen::MatrixXd& embeddings) const;
-  [[nodiscard]] Eigen::MatrixXd plda_tf(const Eigen::MatrixXd& x0, int lda_dim) const;
-  [[nodiscard]] Eigen::MatrixXd operator()(const Eigen::MatrixXd& embeddings) const;
+Eigen::MatrixXd xvec_tf(const Eigen::MatrixXd& embeddings) const;
+Eigen::MatrixXd plda_tf(const Eigen::MatrixXd& x0, int lda_dim) const;
+Eigen::MatrixXd operator()(const Eigen::MatrixXd& embeddings) const;
 };
 
 void softmax_rows(const Eigen::MatrixXd& logits, Eigen::MatrixXd& out);
@@ -68,3 +69,5 @@ void cluster_vbx(
     double* out_last_elbo_delta = nullptr);
 
 }  // namespace cppannote::plda_vbx
+
+#endif  // PLDA_VBX_H_

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // ONNX embedding runtime helpers shared by ``cpp-annote.cpp`` and ``embedding_golden_test``.
 
-#pragma once
+#ifndef EMBEDDING_ORT_INFER_H_
+#define EMBEDDING_ORT_INFER_H_
 
 #include <onnxruntime_cxx_api.h>
 
@@ -9,7 +10,7 @@
 
 namespace cppannote::embedding_ort {
 
-[[nodiscard]] bool embedding_json_inputs_fbank_first(const std::string& emb_json);
+bool embedding_json_inputs_fbank_first(const std::string& emb_json);
 
 void run_embedding_ort(
     Ort::Session& sess,
@@ -45,3 +46,5 @@ int fbank_num_frames_for_samples(
 int seg_to_fbank_nearest_index(int tf, int num_seg_frames, int num_fbank_frames);
 
 }  // namespace cppannote::embedding_ort
+
+#endif  // EMBEDDING_ORT_INFER_H_

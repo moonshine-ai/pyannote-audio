@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Kaldi log-fbank aligned with cppannote ``ONNXWeSpeakerPretrainedSpeakerEmbedding.compute_fbank``.
 
-#pragma once
+#ifndef COMPUTE_FBANK_H_
+#define COMPUTE_FBANK_H_
 
 #include <cstdint>
 #include <vector>
@@ -22,3 +23,5 @@ void wespeaker_like_fbank(
     int& mel_dim_out);
 
 }  // namespace cppannote::fbank
+
+#endif  // COMPUTE_FBANK_H_

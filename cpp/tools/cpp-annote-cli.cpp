@@ -95,12 +95,9 @@ static std::vector<DiarJob> load_manifest_jobs(const std::string& manifest_path,
       jobs.push_back({cols[0], (fs::path(out_dir) / (wv.stem().string() + ".json")).string()});
     } else if (cols.size() == 2) {
       jobs.push_back({cols[0], cols[1]});
-    } else if (cols.size() == 3) {
-      // 3-column format: wav<TAB>golden_bounds<TAB>out — golden_bounds column is ignored.
-      jobs.push_back({cols[0], cols[2]});
     } else {
       throw std::runtime_error("manifest " + manifest_path + " line " + std::to_string(lineno) +
-                               ": expected 1, 2, or 3 tab-separated fields");
+                               ": expected 1 or 2 tab-separated fields (wav | wav<TAB>out)");
     }
   }
   if (jobs.empty()) {
@@ -242,43 +239,28 @@ int main(int argc, char** argv) {
         << "  --manifest PATH\n"
         << "    1 field:   wav   (requires --out-dir -> OUT/<wav_stem>.json)\n"
         << "    2 fields:  wav<TAB>out.json\n"
-        << "    3 fields:  wav<TAB>golden_speaker_bounds.json<TAB>out.json\n"
         << "  --out-dir PATH             required for 1-column manifest lines; also for --wav-list\n\n"
         << "Multi-file — one WAV path per line:\n"
         << "  --wav-list PATH            requires --out-dir; writes OUT/<stem>.json per line\n\n"
         << "Tuning:\n"
         << "  --refresh-every N          re-cluster every N seconds of new audio (default 2.0)\n\n"
-        << "Optional overrides (defaults compiled into the binary from export_cpp_annote_embedded.py):\n"
-        << "  --receptive-field PATH         receptive_field.json\n"
-        << "  --pipeline-snapshot PATH       pipeline_snapshot.json\n"
-        << "  --golden-speaker-bounds PATH   default max_speakers cap\n"
-        << "  --xvec-transform PATH          xvec_transform.npz (must pair with --plda)\n"
-        << "  --plda PATH                    plda.npz\n"
+        << "Other:\n"
         << "  --continue-on-error            print error and continue; exit 1 if any failed\n";
     return 2;
   }
   try {
     const std::string onnx_path = get_arg(argc, argv, "--segmentation-onnx",
                                           "artifacts/community1-segmentation.onnx");
-    const std::string rf_path = get_arg(argc, argv, "--receptive-field");
+    const std::string embed_onnx = get_arg(argc, argv, "--embedding-onnx",
+                                           "artifacts/community1-embedding.onnx");
     const std::string manifest_path = get_arg(argc, argv, "--manifest");
     const std::string wav_list_path = get_arg(argc, argv, "--wav-list");
     const std::string wav_path = get_arg(argc, argv, "--wav");
     const std::string out_dir = get_arg(argc, argv, "--out-dir");
-    const std::string global_bounds = get_arg(argc, argv, "--golden-speaker-bounds");
-    const std::string snap = get_arg(argc, argv, "--pipeline-snapshot");
-    const std::string embed_onnx = get_arg(argc, argv, "--embedding-onnx",
-                                           "artifacts/community1-embedding.onnx");
-    const std::string xvec_npz = get_arg(argc, argv, "--xvec-transform");
-    const std::string plda_npz = get_arg(argc, argv, "--plda");
     const bool continue_on_error = has_flag(argc, argv, "--continue-on-error");
 
     const std::string refresh_str = get_arg(argc, argv, "--refresh-every");
     const double refresh_every_sec = refresh_str.empty() ? 2.0 : std::stod(refresh_str);
-
-    if ((!xvec_npz.empty() && plda_npz.empty()) || (xvec_npz.empty() && !plda_npz.empty())) {
-      throw std::runtime_error("provide both --xvec-transform and --plda, or neither for embedded weights");
-    }
 
     std::vector<DiarJob> jobs;
     if (!manifest_path.empty()) {
@@ -305,14 +287,7 @@ int main(int argc, char** argv) {
       jobs.push_back({wav_path, out_path});
     }
 
-    cppannote::CppAnnote engine(
-        onnx_path,
-        rf_path,
-        global_bounds,
-        snap,
-        embed_onnx,
-        xvec_npz,
-        plda_npz);
+    cppannote::CppAnnote engine(onnx_path, embed_onnx);
 
     run_diarize(engine, jobs, refresh_every_sec, continue_on_error);
   } catch (const std::exception& e) {

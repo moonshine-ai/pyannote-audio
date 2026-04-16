@@ -3,7 +3,8 @@
 // bounded model-rate buffer on a coarse cadence (VBx / reconstruct are batch over the window).
 // Internal implementation detail — public callers should use CppAnnote (cpp-annote.h).
 
-#pragma once
+#ifndef CPP_ANNOTE_STREAMING_H_
+#define CPP_ANNOTE_STREAMING_H_
 
 #include "cpp-annote-engine.h"
 
@@ -46,7 +47,7 @@ class StreamingDiarizationSession {
   /// model rate and concatenates on the session timeline.
   void add_audio_chunk(const float* pcm, std::size_t num_samples, int sample_rate);
   /// Current best snapshot (updated on refresh cadence; ``input_end_sec`` advances every chunk).
-  [[nodiscard]] StreamingDiarizationSnapshot snapshot() const;
+StreamingDiarizationSnapshot snapshot() const;
 
   /// Force a VBx refresh and return the updated snapshot.
   StreamingDiarizationSnapshot refresh_and_snapshot();
@@ -91,3 +92,5 @@ class StreamingDiarizationSession {
 };
 
 }  // namespace cppannote
+
+#endif  // CPP_ANNOTE_STREAMING_H_

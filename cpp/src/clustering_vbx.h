@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // ``VBxClustering.__call__`` (filter → AHC → PLDA → VBx → optional KMeans → cdist → assignment).
 
-#pragma once
+#ifndef CLUSTERING_VBX_H_
+#define CLUSTERING_VBX_H_
 
 #include <cstdint>
 #include <vector>
@@ -39,3 +40,5 @@ void vbx_clustering_hard(
     std::vector<std::int8_t>& hard_clusters);
 
 }  // namespace cppannote::clustering_vbx
+
+#endif  // CLUSTERING_VBX_H_

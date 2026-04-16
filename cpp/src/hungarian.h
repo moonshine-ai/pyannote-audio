@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Min-cost assignment for a rectangular cost matrix (rows <= cols), CC0-style Hungarian.
 
-#pragma once
+#ifndef HUNGARIAN_H_
+#define HUNGARIAN_H_
 
 #include <algorithm>
 #include <cmath>
@@ -84,3 +85,5 @@ inline std::pair<double, std::vector<int>> min_cost_assignment(const std::vector
 }
 
 }  // namespace cppannote::hungarian
+
+#endif  // HUNGARIAN_H_

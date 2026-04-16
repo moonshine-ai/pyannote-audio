@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Stage A: ``PYANNOTE_CPP_PARITY`` light/heavy diagnostics for embedding + VBx (see ``embedding-vbx-parity-plan.md``).
 
-#pragma once
+#ifndef PARITY_LOG_H_
+#define PARITY_LOG_H_
 
 #include <cstddef>
 #include <cstdint>
@@ -32,3 +33,5 @@ std::string parity_clustering_npz_path();
 std::string fingerprint_float32(const float* data, std::size_t n, std::size_t stride = 409);
 
 }  // namespace cppannote::parity
+
+#endif  // PARITY_LOG_H_
