@@ -1,4 +1,17 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "datasets",
+#     "huggingface_hub",
+#     "numpy",
+#     "pyannote.audio",
+#     "pyannote.core",
+#     "pyannote.metrics",
+#     "torch",
+#     "torchaudio",
+# ]
+# ///
 # MIT License
 #
 # Copyright (c) 2026- pyannote.audio contributors
@@ -30,11 +43,11 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 
 def _repo_root() -> Path:
     for d in _SCRIPT_DIR.parents:
-        if (d / "cpp" / "scripts" / "dump_diarization_golden.py").is_file():
+        if (d / "scripts" / "dump_diarization_golden.py").is_file():
             return d
     raise RuntimeError(
         "Could not locate pyannote-audio repository root "
-        "(expected cpp/scripts/dump_diarization_golden.py in a parent of this script)."
+        "(expected scripts/dump_diarization_golden.py in a parent of this script)."
     )
 
 
@@ -202,32 +215,8 @@ def main() -> None:
     ap.add_argument(
         "--cpp-binary",
         type=Path,
-        default=_REPO_ROOT / "cpp" / "build" / "cpp-annote-cli",
+        default=_REPO_ROOT / "build" / "cpp-annote-cli",
         help="Path to cpp-annote-cli executable",
-    )
-    ap.add_argument(
-        "--segmentation-onnx",
-        type=Path,
-        default=_REPO_ROOT / "cpp" / "artifacts" / "community1-segmentation.onnx",
-        help="Segmentation ONNX for the C++ short path",
-    )
-    ap.add_argument(
-        "--cpp-embedding-onnx",
-        type=Path,
-        default=_REPO_ROOT / "cpp" / "artifacts" / "community1-embedding.onnx",
-        help="Embedding ONNX passed to cpp-annote-cli",
-    )
-    ap.add_argument(
-        "--cpp-xvec",
-        type=Path,
-        default=None,
-        help="xvec_transform.npz (default: download from --checkpoint)",
-    )
-    ap.add_argument(
-        "--cpp-plda",
-        type=Path,
-        default=None,
-        help="plda.npz (default: download from --checkpoint)",
     )
     ap.add_argument("--skip-cpp", action="store_true", help="Skip C++ binary; only Python DER + golden dump")
     ap.add_argument(
@@ -246,7 +235,7 @@ def main() -> None:
         action="store_true",
         help=(
             "After C++ batch, run clustering_golden_test on the first utterance only "
-            "(requires cpp/build/clustering_golden_test and golden NPZ from the dump)."
+            "(requires build/clustering_golden_test and golden NPZ from the dump)."
         ),
     )
     args = ap.parse_args()
@@ -313,7 +302,7 @@ def main() -> None:
 
     if not args.skip_dump:
         golden_root.mkdir(parents=True, exist_ok=True)
-        dump_py = _REPO_ROOT / "cpp" / "scripts" / "dump_diarization_golden.py"
+        dump_py = _REPO_ROOT / "scripts" / "dump_diarization_golden.py"
         cmd = [
             sys.executable,
             str(dump_py),
@@ -337,11 +326,6 @@ def main() -> None:
         cpp_bin = args.cpp_binary.resolve()
         if not cpp_bin.is_file():
             raise SystemExit(f"C++ binary not found: {cpp_bin} (build with scripts/build_cpp.sh)")
-        onnx = args.segmentation_onnx.resolve()
-        emb_onnx = args.cpp_embedding_onnx.resolve()
-        for p in (onnx, emb_onnx):
-            if not p.is_file():
-                raise SystemExit(f"Missing required file for C++: {p}")
 
         manifest_path = work / "cpp_diar_manifest.tsv"
         man_lines: list[str] = []
@@ -354,29 +338,13 @@ def main() -> None:
             str(cpp_bin),
             "--manifest",
             str(manifest_path),
-            "--segmentation-onnx",
-            str(onnx),
-            "--embedding-onnx",
-            str(emb_onnx),
         ]
-        if args.cpp_xvec is not None and args.cpp_plda is not None:
-            xv = args.cpp_xvec.resolve()
-            pl = args.cpp_plda.resolve()
-        else:
-            xv, pl = _hf_embedding_plda_paths(args.checkpoint, args.revision, token)
-        xvec_resolved = xv
-        plda_resolved = pl
         if args.refresh_every is not None:
             cmd_cpp += ["--refresh-every", str(args.refresh_every)]
         print("Running C++ (streaming):", cpp_bin.name, flush=True)
         subprocess.run(cmd_cpp, cwd=str(_REPO_ROOT), check=True)
 
-        if (
-            args.cpp_clustering_check
-            and stems
-            and xvec_resolved is not None
-            and plda_resolved is not None
-        ):
+        if args.cpp_clustering_check and stems:
             clu_bin = cpp_bin.parent / "clustering_golden_test"
             utter0 = golden_root / stems[0]
             if clu_bin.is_file() and utter0.is_dir():

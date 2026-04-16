@@ -1,60 +1,49 @@
 # C++ bootstrap: ONNX Runtime + golden NPZ parity (segmentation first chunk).
 cmake_minimum_required(VERSION 3.16)
-project(pyannote_cpp LANGUAGES CXX)
+project(pyannote_cpp LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(POLICY CMP0135)
-  cmake_policy(SET CMP0135 NEW)
-endif()
-
-include(FetchContent)
-
-# ---- Eigen (header-only) ----------------------------------------------------
-FetchContent_Declare(
-  eigen3
-  GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-  GIT_TAG 3.4.0
-)
-FetchContent_GetProperties(eigen3)
-if(NOT eigen3_POPULATED)
-  FetchContent_Populate(eigen3)
-endif()
-
-# Eigen: only MPL2-licensed modules (dense solvers we use remain available).
+# ---- Eigen (header-only, from third-party/) ---------------------------------
 add_library(eigen_mpl2 INTERFACE)
 target_compile_definitions(eigen_mpl2 INTERFACE EIGEN_MPL2_ONLY=1)
-target_include_directories(eigen_mpl2 INTERFACE "${eigen3_SOURCE_DIR}")
+target_include_directories(eigen_mpl2 INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/third-party")
 
-# ---- cnpy (NPZ / NPY) -------------------------------------------------------
-FetchContent_Declare(
-  cnpy_external
-  GIT_REPOSITORY https://github.com/rogersce/cnpy.git
-  GIT_TAG master
-)
-FetchContent_GetProperties(cnpy_external)
-if(NOT cnpy_external_POPULATED)
-  FetchContent_Populate(cnpy_external)
-endif()
-
-add_library(cnpy_static STATIC "${cnpy_external_SOURCE_DIR}/cnpy.cpp")
-target_include_directories(cnpy_static PUBLIC "${cnpy_external_SOURCE_DIR}")
+# ---- cnpy (NPZ / NPY, from third-party/) ------------------------------------
+add_library(cnpy_static STATIC "${CMAKE_CURRENT_SOURCE_DIR}/third-party/cnpy/cnpy.cpp")
+target_include_directories(cnpy_static PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/third-party/cnpy")
 find_package(ZLIB REQUIRED)
 target_link_libraries(cnpy_static PUBLIC ZLIB::ZLIB)
 
-# ---- kaldi-native-fbank (+ kissfft via upstream cmake) ----------------------
-option(PYANNOTE_FETCH_KALDI_NATIVE_FBANK "Fetch and build kaldi-native-fbank + kissfft" ON)
-if(PYANNOTE_FETCH_KALDI_NATIVE_FBANK)
-  set(KALDI_NATIVE_FBANK_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-  set(KALDI_NATIVE_FBANK_BUILD_PYTHON OFF CACHE BOOL "" FORCE)
-  FetchContent_Declare(
-    kaldi_native_fbank
-    GIT_REPOSITORY https://github.com/csukuangfj/kaldi-native-fbank.git
-    GIT_TAG v1.22.3
-  )
-  FetchContent_MakeAvailable(kaldi_native_fbank)
-endif()
+# ---- kissfft (from third-party/) ---------------------------------------------
+set(KISSFFT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third-party/kissfft")
+add_library(kissfft STATIC
+  "${KISSFFT_DIR}/kiss_fft.c"
+  "${KISSFFT_DIR}/kiss_fftr.c"
+)
+target_include_directories(kissfft PUBLIC "${KISSFFT_DIR}")
+target_compile_definitions(kissfft PUBLIC kiss_fft_scalar=float)
+
+# ---- kaldi-native-fbank (from third-party/) ----------------------------------
+set(KNF_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third-party/kaldi-native-fbank")
+set(KNF_CSRC "${KNF_DIR}/csrc")
+add_library(kaldi-native-fbank-core STATIC
+  "${KNF_CSRC}/feature-fbank.cc"
+  "${KNF_CSRC}/feature-functions.cc"
+  "${KNF_CSRC}/feature-mfcc.cc"
+  "${KNF_CSRC}/feature-raw-audio-samples.cc"
+  "${KNF_CSRC}/feature-window.cc"
+  "${KNF_CSRC}/istft.cc"
+  "${KNF_CSRC}/kaldi-math.cc"
+  "${KNF_CSRC}/mel-computations.cc"
+  "${KNF_CSRC}/online-feature.cc"
+  "${KNF_CSRC}/rfft.cc"
+  "${KNF_CSRC}/stft.cc"
+  "${KNF_CSRC}/whisper-feature.cc"
+)
+target_include_directories(kaldi-native-fbank-core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/third-party")
+target_link_libraries(kaldi-native-fbank-core PUBLIC kissfft)
 
 # ---- ONNX Runtime (prebuilt SDK) -------------------------------------------
 if(NOT ONNXRUNTIME_ROOT AND DEFINED ENV{ONNXRUNTIME_ROOT})
@@ -117,12 +106,8 @@ add_executable(
 target_include_directories(embedding_golden_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_include_directories(embedding_golden_test PRIVATE "${ORT_INCLUDE_DIR}")
 target_link_libraries(
-  embedding_golden_test PRIVATE cnpy_static "${ORT_LIBRARY}"
+  embedding_golden_test PRIVATE cnpy_static "${ORT_LIBRARY}" kaldi-native-fbank-core
 )
-if(PYANNOTE_FETCH_KALDI_NATIVE_FBANK)
-  target_include_directories(embedding_golden_test PRIVATE "${kaldi_native_fbank_SOURCE_DIR}")
-  target_link_libraries(embedding_golden_test PRIVATE kaldi-native-fbank-core)
-endif()
 if(APPLE)
   target_link_libraries(embedding_golden_test PRIVATE "-framework Foundation")
 endif()
@@ -199,22 +184,13 @@ add_executable(
 )
 target_include_directories(cpp-annote-cli PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_include_directories(cpp-annote-cli PRIVATE "${ORT_INCLUDE_DIR}")
-target_link_libraries(cpp-annote-cli PRIVATE cnpy_static "${ORT_LIBRARY}" eigen_mpl2)
-if(PYANNOTE_FETCH_KALDI_NATIVE_FBANK)
-  target_include_directories(cpp-annote-cli PRIVATE "${kaldi_native_fbank_SOURCE_DIR}")
-  target_link_libraries(cpp-annote-cli PRIVATE kaldi-native-fbank-core)
-endif()
+target_link_libraries(cpp-annote-cli PRIVATE cnpy_static "${ORT_LIBRARY}" eigen_mpl2 kaldi-native-fbank-core)
 if(APPLE)
   target_link_libraries(cpp-annote-cli PRIVATE "-framework Foundation")
 endif()
 
-if(PYANNOTE_FETCH_KALDI_NATIVE_FBANK)
-  add_executable(knf_smoke_test tests/knf_smoke_test.cpp)
-  target_include_directories(
-    knf_smoke_test PRIVATE "${kaldi_native_fbank_SOURCE_DIR}"
-  )
-  target_link_libraries(knf_smoke_test PRIVATE kaldi-native-fbank-core)
-endif()
+add_executable(knf_smoke_test tests/knf_smoke_test.cpp)
+target_link_libraries(knf_smoke_test PRIVATE kaldi-native-fbank-core)
 
 message(STATUS "ONNXRUNTIME_ROOT=${ONNXRUNTIME_ROOT}")
 message(STATUS "ORT_INCLUDE_DIR=${ORT_INCLUDE_DIR}")
