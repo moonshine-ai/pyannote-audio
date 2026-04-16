@@ -522,12 +522,6 @@ bool try_regex_int(const std::string& json, const std::string& key_esc, int& out
   return true;
 }
 
-std::string default_speaker_label(int k) {
-  char buf[32];
-  std::snprintf(buf, sizeof(buf), "SPEAKER_%02d", k);
-  return std::string(buf);
-}
-
 }  // namespace
 
 CppAnnoteEngine::CppAnnoteEngine(
@@ -858,10 +852,6 @@ std::vector<DiarizationTurn> CppAnnoteEngine::cluster_and_decode(
   }
   const int rows = static_cast<int>(discrete.size() / static_cast<size_t>(K_di));
 
-  std::map<int, std::string> label_map;
-  for (int k = 0; k < K_di; ++k) {
-    label_map[k] = default_speaker_label(k);
-  }
   std::map<int, std::vector<cppannote::Segment>> by_label;
   for (int k = 0; k < K_di; ++k) {
     std::vector<float> col(static_cast<size_t>(rows));
@@ -888,12 +878,12 @@ std::vector<DiarizationTurn> CppAnnoteEngine::cluster_and_decode(
       if (seg.duration() < min_on_ - 1e-12) {
         continue;
       }
-      turns.push_back({seg.start, seg.end, label_map.at(pr.first)});
+      turns.push_back({seg.start, seg.end, static_cast<int32_t>(pr.first)});
     }
   } else {
     for (int k = 0; k < K_di; ++k) {
       for (const cppannote::Segment& seg : by_label[k]) {
-        turns.push_back({seg.start, seg.end, label_map.at(k)});
+        turns.push_back({seg.start, seg.end, static_cast<int32_t>(k)});
       }
     }
   }
@@ -901,6 +891,7 @@ std::vector<DiarizationTurn> CppAnnoteEngine::cluster_and_decode(
     if (a.start != b.start) return a.start < b.start;
     if (a.end != b.end) return a.end < b.end;
     return a.speaker < b.speaker;
+
   });
 
   const auto t_end = Clock::now();
@@ -916,17 +907,6 @@ std::vector<DiarizationTurn> CppAnnoteEngine::cluster_and_decode(
 // DiarizationResults::write_json
 // ---------------------------------------------------------------------------
 
-static std::string json_escape_speaker(const std::string& s) {
-  std::string o;
-  for (char c : s) {
-    if (c == '"' || c == '\\') {
-      o += '\\';
-    }
-    o += c;
-  }
-  return o;
-}
-
 void DiarizationResults::write_json(std::ostream& os) const {
   os << std::setprecision(17);
   os << "{\n";
@@ -934,7 +914,7 @@ void DiarizationResults::write_json(std::ostream& os) const {
   for (size_t i = 0; i < turns.size(); ++i) {
     const DiarizationTurn& t = turns[i];
     os << "    {\"start\": " << t.start << ", \"end\": " << t.end
-       << ", \"speaker\": \"" << json_escape_speaker(t.speaker) << "\"}";
+       << ", \"speaker\": " << t.speaker << "}";
     if (i + 1 < turns.size()) {
       os << ",";
     }

@@ -16,7 +16,7 @@ namespace cppannote {
 struct DiarizationTurn {
   double start = 0.;
   double end = 0.;
-  std::string speaker;
+  int32_t speaker = 0;
 };
 
 struct DiarizationResults {
