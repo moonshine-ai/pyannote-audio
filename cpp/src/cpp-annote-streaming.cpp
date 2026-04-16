@@ -295,17 +295,6 @@ void StreamingDiarizationSession::maybe_refresh(bool force) {
   cumulative_profile_.accumulate(prof);
   ++refresh_count_;
 
-  char logbuf[384];
-  std::snprintf(logbuf, sizeof(logbuf),
-                "[streaming refresh #%d] vbx_chunks=%d (new_ort=%d)  ort=%.3fs "
-                " vbx=%.3fs  recon=%.3fs  total=%.3fs  buf=%.1fs  cache=%zu",
-                refresh_count_, C_full, new_ort_count, prof.embedding_ort_sec,
-                prof.clustering_vbx_sec, prof.reconstruct_sec, prof.total_sec,
-                static_cast<double>(buffer_.size()) /
-                    static_cast<double>(std::max(1, sr_model)),
-                chunk_cache_.size());
-  std::cerr << logbuf << "\n";
-
   // VBx ran on the full history so turns already have stream-absolute
   // timestamps.
   std::vector<StreamingDiarizationTurn> next;
@@ -343,10 +332,6 @@ StreamingDiarizationSnapshot StreamingDiarizationSession::end_session() {
   maybe_refresh(true);
   snapshot_.input_end_sec = input_end_sec_;
   snapshot_.window_start_sec = window_start_sec_;
-
-  std::cerr << "[streaming summary] " << refresh_count_
-            << " refreshes, cumulative breakdown:\n";
-  cumulative_profile_.print(std::cerr, "  ");
 
   return snapshot_;
 }
