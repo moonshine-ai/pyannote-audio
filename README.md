@@ -1,6 +1,6 @@
 # CPP-Annote
 
-Port of the [pyannote] diarization framework from Python to C++.
+Port of the [pyannote](https://github.com/pyannote/pyannote-audio) diarization framework from Python to C++.
 
 The original pyannote is the leading solution for turning raw input audio into segments of speech that are each tagged with the identity of the current speaker. It was created, and is maintained, by [Herve Bredin](https://herve.niderb.fr/) at [pyannote.ai](https://www.pyannote.ai/).
 
